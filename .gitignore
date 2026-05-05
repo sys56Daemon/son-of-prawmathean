@@ -1,0 +1,28 @@
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+
+# ── WhatsApp Session (NEVER commit — treat like a password) ──────────────────
+auth_info/
+auth_info_baileys/
+*.session
+*.creds.json
+
+# ── Environment / Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+
+# ── OS / Editor junk ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── Temp files ────────────────────────────────────────────────────────────────
+tmp/
+*.tmp
