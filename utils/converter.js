@@ -1,4 +1,4 @@
-import Jimp from 'jimp';
+import { Jimp } from 'jimp';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { writeFile, readFile, unlink } from 'fs/promises';
@@ -11,7 +11,7 @@ const MAX_SIZE = 512;
 
 /**
  * Convert a static image buffer (JPEG, PNG, WebP, etc.) to a 512x512 WebP buffer.
- * Uses jimp (pure JS) — works on Android/Termux without native binaries.
+ * Uses jimp v1 (pure JS) — works on Arch Linux / Termux without native binaries.
  * Note: jimp outputs PNG internally; ffmpeg converts to WebP for sticker compatibility.
  */
 export async function convertToStaticWebP(imageBuffer) {
@@ -20,10 +20,14 @@ export async function convertToStaticWebP(imageBuffer) {
   const outputPath = join(tmpdir(), `wabot_out_${id}.webp`);
 
   try {
-    // Resize with jimp (pure JS, no native deps)
-    const image = await Jimp.read(imageBuffer);
-    image.contain(MAX_SIZE, MAX_SIZE); // letterbox to 512x512
-    const pngBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
+    // Resize with jimp v1 (pure JS, no native deps)
+    const image = await Jimp.fromBuffer(imageBuffer);
+    // containWithin: fit inside MAX_SIZE x MAX_SIZE, preserving aspect ratio
+    const w = image.width;
+    const h = image.height;
+    const scale = Math.min(MAX_SIZE / w, MAX_SIZE / h);
+    image.resize({ w: Math.round(w * scale), h: Math.round(h * scale) });
+    const pngBuffer = await image.getBuffer('image/png');
 
     // Write PNG, then convert to WebP via ffmpeg
     await writeFile(inputPath, pngBuffer);

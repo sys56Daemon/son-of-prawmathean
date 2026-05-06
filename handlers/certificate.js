@@ -1,5 +1,18 @@
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getNumber } from '../utils/permissions.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Register explicit fonts to ensure it never renders blank text regardless of the OS/Environment.
+const FONT_DIR = join(__dirname, '../assets/fonts');
+GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Regular.ttf'), 'Noto Serif');
+GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Bold.ttf'), 'Noto Serif');
+GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Italic.ttf'), 'Noto Serif');
+GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-BoldItalic.ttf'), 'Noto Serif');
+GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSans-Regular.ttf'), 'Noto Sans');
+GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSans-Bold.ttf'), 'Noto Sans');
 
 // ─── Arg Parser ───────────────────────────────────────────────────────────────
 
@@ -90,7 +103,7 @@ async function generateCertificate(name, position) {
   // ── Diagonal watermark ──────────────────────────────────────────────────────
   ctx.save();
   ctx.globalAlpha = 0.05;
-  ctx.font        = 'bold 170px serif';
+  ctx.font        = 'bold 170px "Noto Serif"';
   ctx.fillStyle   = '#8B6914';
   ctx.translate(W / 2, H / 2);
   ctx.rotate(-Math.PI / 8);
@@ -136,16 +149,16 @@ async function generateCertificate(name, position) {
 
   // ── Decorative top row of stars ──────────────────────────────────────────────
   ctx.textAlign = 'center';
-  ctx.font      = '22px sans-serif';
+  ctx.font      = '22px "Noto Sans"';
   ctx.fillStyle = GOLD;
   ctx.fillText('✦  ✦  ✦  ✦  ✦  ✦  ✦  ✦  ✦', W / 2, 100);
 
   // ── Header ───────────────────────────────────────────────────────────────────
-  ctx.font      = 'bold 64px serif';
+  ctx.font      = 'bold 64px "Noto Serif"';
   ctx.fillStyle = '#7a1020';
   ctx.fillText('CERTIFICATE', W / 2, 175);
 
-  ctx.font      = 'bold 26px serif';
+  ctx.font      = 'bold 26px "Noto Serif"';
   ctx.fillStyle = GOLD;
   ctx.letterSpacing = '6px';
   ctx.fillText('O F  A C H I E V E M E N T', W / 2, 220);
@@ -161,24 +174,24 @@ async function generateCertificate(name, position) {
     ctx.moveTo(W / 2 + 20,  y);
     ctx.lineTo(W / 2 + 380, y);
     ctx.stroke();
-    ctx.font      = '14px sans-serif';
+    ctx.font      = '14px "Noto Sans"';
     ctx.fillStyle = GOLD;
     ctx.fillText('❖', W / 2, y + 5);
   };
   divider(245);
 
   // ── Body text ─────────────────────────────────────────────────────────────────
-  ctx.font      = 'italic 23px serif';
+  ctx.font      = 'italic 23px "Noto Serif"';
   ctx.fillStyle = '#5c3a1e';
   ctx.fillText('This is to officially certify that the individual known as', W / 2, 305);
 
   // ── Recipient name ────────────────────────────────────────────────────────────
   // Clamp font size if name is too long
   let nameFontSize = 82;
-  ctx.font = `bold ${nameFontSize}px serif`;
+  ctx.font = `bold ${nameFontSize}px "Noto Serif"`;
   while (ctx.measureText(name).width > W - 200 && nameFontSize > 40) {
     nameFontSize -= 4;
-    ctx.font = `bold ${nameFontSize}px serif`;
+    ctx.font = `bold ${nameFontSize}px "Noto Serif"`;
   }
   ctx.fillStyle = '#1a0800';
   ctx.fillText(name, W / 2, 405);
@@ -193,20 +206,20 @@ async function generateCertificate(name, position) {
   ctx.stroke();
 
   // ── Position text ─────────────────────────────────────────────────────────────
-  ctx.font      = 'italic 23px serif';
+  ctx.font      = 'italic 23px "Noto Serif"';
   ctx.fillStyle = '#5c3a1e';
   ctx.fillText('has been appointed as the official', W / 2, 470);
 
   let posFontSize = 44;
-  ctx.font = `bold italic ${posFontSize}px serif`;
+  ctx.font = `bold italic ${posFontSize}px "Noto Serif"`;
   while (ctx.measureText(`"${position}"`).width > W - 160 && posFontSize > 24) {
     posFontSize -= 2;
-    ctx.font = `bold italic ${posFontSize}px serif`;
+    ctx.font = `bold italic ${posFontSize}px "Noto Serif"`;
   }
   ctx.fillStyle = '#7a1020';
   ctx.fillText(`"${position}"`, W / 2, 535);
 
-  ctx.font      = 'italic 22px serif';
+  ctx.font      = 'italic 22px "Noto Serif"';
   ctx.fillStyle = '#5c3a1e';
   ctx.fillText('as recognized by the Council of Prawmathean Republic™', W / 2, 583);
 
@@ -216,7 +229,7 @@ async function generateCertificate(name, position) {
   const date = new Date().toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
-  ctx.font      = '19px serif';
+  ctx.font      = '19px "Noto Serif"';
   ctx.fillStyle = '#6b4e2a';
   ctx.fillText(`Issued on ${date}`, W / 2, 648);
 
@@ -226,9 +239,9 @@ async function generateCertificate(name, position) {
 
   // Left
   ctx.beginPath(); ctx.moveTo(130, 740); ctx.lineTo(410, 740); ctx.stroke();
-  ctx.font = 'bold italic 18px serif'; ctx.fillStyle = '#5c3a1e';
+  ctx.font = 'bold italic 18px "Noto Serif"'; ctx.fillStyle = '#5c3a1e';
   ctx.fillText('Prawmathean Republic', 270, 763);
-  ctx.font = '14px serif'; ctx.fillStyle = '#999';
+  ctx.font = '14px "Noto Serif"'; ctx.fillStyle = '#999';
   ctx.fillText('Mr Robot', 270, 782);
 
   // // Right
@@ -261,20 +274,20 @@ async function generateCertificate(name, position) {
   ctx.beginPath(); ctx.arc(0, 0, 52, 0, Math.PI * 2); ctx.stroke();
 
   // Seal text
-  ctx.font        = 'bold 13px sans-serif';
+  ctx.font        = 'bold 13px "Noto Sans"';
   ctx.fillStyle   = '#8B6914';
   ctx.textAlign   = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('⭐   ⭐', 0, -14);
   ctx.fillText('FSOCIETY', 0, 4);
-  ctx.font = '11px sans-serif';
+  ctx.font = '11px "Noto Sans"';
   ctx.fillStyle = '#696969ff';
   ctx.fillText('WE ARE FSOCIETY', 0, 22);
 
   ctx.restore();
 
   // ── Fine print ────────────────────────────────────────────────────────────────
-  ctx.font      = '12px sans-serif';
+  ctx.font      = '12px "Noto Sans"';
   ctx.fillStyle = '#bbb';
   ctx.textAlign = 'center';
   ctx.fillText(
@@ -283,7 +296,7 @@ async function generateCertificate(name, position) {
   );
 
   // ── Bottom stars ─────────────────────────────────────────────────────────────
-  ctx.font      = '18px sans-serif';
+  ctx.font      = '18px "Noto Sans"';
   ctx.fillStyle = GOLD;
   ctx.fillText('✦  ✦  ✦  ✦  ✦  ✦  ✦  ✦  ✦', W / 2, 848);
 

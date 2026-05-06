@@ -54,7 +54,7 @@ export async function handleTagAll(sock, msg, args) {
   const meta = await sock.groupMetadata(jid);
   const participants = meta.participants;
   const mentions     = participants.map(p => p.id);
-  const customMsg    = args.join(' ') || '👋 Hey everyone!';
+  const customMsg    = args.join(' ') || '\t';
 
   const tagList = participants.map(p => `@${p.id.split('@')[0]}`).join(' ');
   await sock.sendMessage(jid, {
