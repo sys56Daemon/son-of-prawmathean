@@ -132,8 +132,8 @@ function injectExifChunk(webpBuffer, exifData) {
   exifHeader.writeUInt32LE(exifData.length, 4);
   const exifChunk = { fourCC: 'EXIF', data: Buffer.concat([exifHeader, exifData, pad]) };
 
-  // 5. Insert EXIF after VP8X
-  chunks.splice(vp8xIdx + 1, 0, exifChunk);
+  // 5. Insert EXIF at the end (spec requires EXIF to be after image data VP8/VP8L/ANMF)
+  chunks.push(exifChunk);
 
   // 6. Reassemble RIFF
   const body     = Buffer.concat(chunks.map(c => c.data));
