@@ -92,6 +92,7 @@ export async function handleHelp(sock, msg) {
       `› \`${p}demote @user\` — Remove admin`,
       ``,
       `*👑 Owner*`,
+      `› \`${p}mode\` — Toggle Private/Public`,
       `› \`${p}public\` — Switch to Public mode`,
       `› \`${p}private\` — Switch to Private mode`,
       ``,
@@ -164,5 +165,21 @@ export async function handlePrivate(sock, msg) {
   config.private = true;
   await sock.sendMessage(msg.key.remoteJid, {
     text: '🔒 *Bot is now PRIVATE.*\nOnly authorized numbers can use it.',
+  }, { quoted: msg });
+}
+
+/** .mode — Toggles between Public and Private mode (Owner only) */
+export async function handleMode(sock, msg) {
+  const { isOwner } = await import('../utils/permissions.js');
+  if (!isOwner(msg.key.participant ?? msg.key.remoteJid)) return;
+
+  config.private = !config.private;
+  const status = config.private ? 'PRIVATE 🔒' : 'PUBLIC 🔓';
+  const desc   = config.private 
+    ? 'Only authorized numbers can use it.' 
+    : 'Anyone can use the commands.';
+
+  await sock.sendMessage(msg.key.remoteJid, {
+    text: `⚙️ *Mode Toggled*\n\nStatus: *${status}*\n${desc}`,
   }, { quoted: msg });
 }

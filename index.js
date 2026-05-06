@@ -13,7 +13,7 @@ import { isAllowed, getNumber, isUnconfigured } from './utils/permissions.js';
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 import { handleStickerCommand } from './handlers/sticker.js';
-import { handlePing, handleAlive, handleInfo, handleHelp, handleToImg, handlePublic, handlePrivate } from './handlers/general.js';
+import { handlePing, handleAlive, handleInfo, handleHelp, handleToImg, handlePublic, handlePrivate, handleMode } from './handlers/general.js';
 import { handleTagAll, handleKick, handlePromote, handleDemote } from './handlers/group.js';
 import { handleCertificate } from './handlers/certificate.js';
 import { handleQR } from './handlers/qr.js';
@@ -68,6 +68,7 @@ async function handleMessage(sock, msg) {
       case 'certify':
       case 'certificate': await handleCertificate(sock, msg, args);   break;
       case 'qr':          await handleQR(sock, msg, args);            break;
+      case 'mode':        await handleMode(sock, msg);                break;
       case 'public':      await handlePublic(sock, msg);              break;
       case 'private':     await handlePrivate(sock, msg);             break;
       case 'tagall':      await handleTagAll(sock, msg, args);        break;
