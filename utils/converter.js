@@ -29,15 +29,20 @@ export async function convertToStaticWebP(imageBuffer) {
     image.resize({ w: Math.round(w * scale), h: Math.round(h * scale) });
     const pngBuffer = await image.getBuffer('image/png');
 
-    // Write PNG, then convert to WebP via ffmpeg
+    // Write PNG, then convert to WebP via ffmpeg with explicit libwebp encoder.
+    // IMPORTANT: The default ffmpeg webp encoder wraps even static images in
+    // ANIM/ANMF chunks, which Android's strict libwebp decoder can't parse as stickers.
+    // libwebp produces the correct VP8X → ALPH → VP8 chunk structure.
     await writeFile(inputPath, pngBuffer);
     await execFileAsync('ffmpeg', [
       '-y',
       '-i', inputPath,
       '-vf', `scale=${MAX_SIZE}:${MAX_SIZE}:force_original_aspect_ratio=decrease,pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
-      '-pix_fmt', 'yuva420p', // Ensure alpha channel for compatibility
+      '-vcodec', 'libwebp',
+      '-lossless', '0',
       '-compression_level', '6',
-      '-q:v', '70',           // Slightly lower quality to keep file size safe for mobile
+      '-q:v', '80',
+      '-preset', 'drawing',
       outputPath,
     ]);
 
@@ -69,13 +74,15 @@ export async function convertToAnimatedWebP(gifBuffer) {
     await execFileAsync('ffmpeg', [
       '-y',
       '-i', inputPath,
-      '-vf', `${vf},fps=15`,   // Cap FPS to 15 to save file size/processing
-      '-pix_fmt', 'yuva420p',
+      '-vf', `${vf},fps=15`,
+      '-vcodec', 'libwebp_anim',
+      '-lossless', '0',
+      '-compression_level', '6',
+      '-q:v', '75',
       '-loop', '0',
       '-preset', 'default',
       '-an',
       '-vsync', '0',
-      '-s', `${MAX_SIZE}x${MAX_SIZE}`,
       outputPath,
     ]);
 
