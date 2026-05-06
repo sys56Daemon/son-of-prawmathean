@@ -1,13 +1,12 @@
-import sharp from 'sharp';
 import { randomUUID } from 'crypto';
 
 /**
  * Injects WhatsApp sticker pack metadata into a WebP buffer.
  *
- * WHY raw RIFF injection instead of sharp.withMetadata():
- *   sharp.withMetadata({ exif }) expects an *object*, not a Buffer.
- *   Passing a Buffer is silently ignored — no metadata gets written.
- *   So we build the EXIF chunk ourselves and splice it into the RIFF container.
+ * WHY raw RIFF injection instead of a library:
+ *   Standard libraries often expect specific object formats or strip existing
+ *   containers. By building the EXIF chunk ourselves and splicing it into the
+ *   RIFF container, we guarantee compatibility with WhatsApp's requirements.
  *
  * WHY "Exif\0\0" prefix:
  *   WebP EXIF chunks must begin with the 6-byte Exif marker that WhatsApp
@@ -23,13 +22,9 @@ export async function addStickerMetadata(webpBuffer, packName, authorName, anima
   });
 
   try {
-    // For static: re-encode through sharp to normalise the WebP first,
-    // then inject the EXIF chunk into the resulting RIFF stream.
-    const base = animated
-      ? webpBuffer
-      : await sharp(webpBuffer).webp({ quality: 80 }).toBuffer();
-
-    return injectExifChunk(base, buildExifChunkData(json));
+    // The webpBuffer is already a normalized 512x512 WebP from converter.js
+    // We just inject the EXIF chunk into the RIFF stream.
+    return injectExifChunk(webpBuffer, buildExifChunkData(json));
 
   } catch (err) {
     console.warn('[metadata] injection failed — sending without metadata:', err.message);
