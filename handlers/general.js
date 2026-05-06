@@ -91,6 +91,10 @@ export async function handleHelp(sock, msg) {
       `› \`${p}promote @user\` — Make admin`,
       `› \`${p}demote @user\` — Remove admin`,
       ``,
+      `*👑 Owner*`,
+      `› \`${p}public\` — Switch to Public mode`,
+      `› \`${p}private\` — Switch to Private mode`,
+      ``,
       `_Prefix: \`${p}\`_`,
     ].join('\n'),
   }, { quoted: msg });
@@ -139,4 +143,26 @@ export async function handleToImg(sock, msg) {
   }, { quoted: msg });
 
   await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });
+}
+
+/** .public — makes the bot usable by anyone (Owner only) */
+export async function handlePublic(sock, msg) {
+  const { isOwner } = await import('../utils/permissions.js');
+  if (!isOwner(msg.key.participant ?? msg.key.remoteJid)) return;
+
+  config.private = false;
+  await sock.sendMessage(msg.key.remoteJid, {
+    text: '🔓 *Bot is now PUBLIC.*\nAnyone can use the commands.',
+  }, { quoted: msg });
+}
+
+/** .private — restricts the bot to allowedNumbers (Owner only) */
+export async function handlePrivate(sock, msg) {
+  const { isOwner } = await import('../utils/permissions.js');
+  if (!isOwner(msg.key.participant ?? msg.key.remoteJid)) return;
+
+  config.private = true;
+  await sock.sendMessage(msg.key.remoteJid, {
+    text: '🔒 *Bot is now PRIVATE.*\nOnly authorized numbers can use it.',
+  }, { quoted: msg });
 }
