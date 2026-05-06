@@ -1,18 +1,32 @@
-import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getNumber } from '../utils/permissions.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Register explicit fonts to ensure it never renders blank text regardless of the OS/Environment.
 const FONT_DIR = join(__dirname, '../assets/fonts');
-GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Regular.ttf'), 'Noto Serif');
-GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Bold.ttf'), 'Noto Serif');
-GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Italic.ttf'), 'Noto Serif');
-GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-BoldItalic.ttf'), 'Noto Serif');
-GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSans-Regular.ttf'), 'Noto Sans');
-GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSans-Bold.ttf'), 'Noto Sans');
+
+// Dynamically load canvas so the bot doesn't crash on Termux
+let canvasSupported = false;
+let createCanvas, GlobalFonts;
+
+try {
+  const canvasMod = await import('@napi-rs/canvas');
+  createCanvas = canvasMod.createCanvas;
+  GlobalFonts = canvasMod.GlobalFonts;
+
+  // Register explicit fonts
+  GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Regular.ttf'), 'Noto Serif');
+  GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Bold.ttf'), 'Noto Serif');
+  GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-Italic.ttf'), 'Noto Serif');
+  GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSerif-BoldItalic.ttf'), 'Noto Serif');
+  GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSans-Regular.ttf'), 'Noto Sans');
+  GlobalFonts.registerFromPath(join(FONT_DIR, 'NotoSans-Bold.ttf'), 'Noto Sans');
+  
+  canvasSupported = true;
+} catch (e) {
+  console.warn('\n⚠️  @napi-rs/canvas could not be loaded. Certificate generation will be disabled.');
+  console.warn('   (This is expected on some Termux/Android environments without native binaries)\n');
+}
 
 // ─── Arg Parser ───────────────────────────────────────────────────────────────
 
@@ -51,6 +65,13 @@ function parseArgs(rawText, mentionedJids = []) {
 
 export async function handleCertificate(sock, msg, args) {
   const jid = msg.key.remoteJid;
+
+  if (!canvasSupported) {
+    await sock.sendMessage(jid, {
+      text: '❌ *Certificate generation is not supported on this device.*\nNative canvas modules are missing (often happens on Termux).',
+    }, { quoted: msg });
+    return;
+  }
 
   if (!args.length) {
     await sock.sendMessage(jid, {

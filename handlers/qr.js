@@ -26,8 +26,8 @@ export async function handleQR(sock, msg, args) {
 
   await sock.sendMessage(jid, {
     image:   imgBuffer,
-    caption: `🔲 Scan to reveal: \`${text.slice(0, 60)}${text.length > 60 ? '…' : ''}\``,
+    // caption: `🔲 Scan to reveal: \`${text.slice(0, 60)}${text.length > 60 ? '…' : ''}\``,
   }, { quoted: msg });
 
-  await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });
+  await sock.sendMessage(jid, { react: { text: '\t', key: msg.key } });
 }
