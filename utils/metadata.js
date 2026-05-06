@@ -72,30 +72,75 @@ function buildExifChunkData(jsonString) {
 }
 
 /**
- * Splices an EXIF chunk into an existing WebP (RIFF) file and updates
- * the RIFF file-size field.
+ * Splices an EXIF chunk into a WebP (RIFF) buffer.
+ *
+ * This implementation is robust:
+ * 1. It ensures a VP8X (Extended Header) chunk exists (mandatory for metadata).
+ * 2. It sets the "Has Metadata" bit in the VP8X flags.
+ * 3. It inserts the EXIF chunk in the correct sequence (before image data).
  */
 function injectExifChunk(webpBuffer, exifData) {
-  if (
-    webpBuffer.slice(0, 4).toString('ascii') !== 'RIFF' ||
-    webpBuffer.slice(8, 12).toString('ascii') !== 'WEBP'
-  ) {
-    throw new Error('Input is not a valid WebP file.');
+  const header = webpBuffer.slice(0, 12);
+  if (header.slice(0, 4).toString('ascii') !== 'RIFF' || header.slice(8, 12).toString('ascii') !== 'WEBP') {
+    throw new Error('Invalid WebP buffer');
   }
 
-  // EXIF chunk: fourCC + little-endian size + data + padding byte if odd
+  // Chunks start at offset 12
+  let chunks = [];
+  let offset = 12;
+  while (offset < webpBuffer.length) {
+    const fourCC = webpBuffer.slice(offset, offset + 4).toString('ascii');
+    const size   = webpBuffer.readUInt32LE(offset + 4);
+    const total  = 8 + size + (size % 2); // 8 bytes header + payload + padding
+    chunks.push({ fourCC, data: webpBuffer.slice(offset, offset + total) });
+    offset += total;
+  }
+
+  // 1. Ensure VP8X exists
+  let vp8xIdx = chunks.findIndex(c => c.fourCC === 'VP8X');
+  if (vp8xIdx === -1) {
+    // We must create a VP8X chunk. To do this correctly, we'd need to extract 
+    // width/height from the VP8/VP8L chunk. However, for stickers, we know 
+    // they are 512x512 (0x200x0x200). 
+    // WebP VP8X uses 24-bit (3 bytes) for width-1 and height-1.
+    // 512-1 = 511 = 0x0001FF.
+    const vp8xData = Buffer.alloc(10 + 8); // 8 header + 10 payload
+    vp8xData.write('VP8X', 0);
+    vp8xData.writeUInt32LE(10, 4);
+    vp8xData[8] = 0x00; // flags: will set metadata bit later
+    // Width (24 bit) at offset 12: 511 -> FF 01 00
+    vp8xData[12] = 0xFF; vp8xData[13] = 0x01; vp8xData[14] = 0x00;
+    // Height (24 bit) at offset 15: 511 -> FF 01 00
+    vp8xData[15] = 0xFF; vp8xData[16] = 0x01; vp8xData[17] = 0x00;
+    
+    chunks.unshift({ fourCC: 'VP8X', data: vp8xData });
+    vp8xIdx = 0;
+  }
+
+  // 2. Set Metadata flag in VP8X (bit 3 of the first byte of payload, which is index 8 of the chunk data)
+  // Flags byte: Rsv | Icc | Alpha | Exif | Xmp | Anim | Rsv | Rsv
+  // We want to set Exif (bit 3, mask 0x08)
+  chunks[vp8xIdx].data[8] |= 0x08;
+
+  // 3. Remove any existing EXIF chunks to prevent duplicates
+  chunks = chunks.filter(c => c.fourCC !== 'EXIF');
+
+  // 4. Create the new EXIF chunk
   const pad         = exifData.length % 2 === 1 ? Buffer.alloc(1) : Buffer.alloc(0);
-  const chunkHeader = Buffer.alloc(8);
-  chunkHeader.write('EXIF', 0, 'ascii');
-  chunkHeader.writeUInt32LE(exifData.length, 4);
-  const exifChunk = Buffer.concat([chunkHeader, exifData, pad]);
+  const exifHeader  = Buffer.alloc(8);
+  exifHeader.write('EXIF', 0);
+  exifHeader.writeUInt32LE(exifData.length, 4);
+  const exifChunk = { fourCC: 'EXIF', data: Buffer.concat([exifHeader, exifData, pad]) };
 
-  // Rebuild RIFF with updated file size
-  const originalChunks = webpBuffer.slice(12);
-  const riffHeader     = Buffer.alloc(12);
-  riffHeader.write('RIFF', 0, 'ascii');
-  riffHeader.writeUInt32LE(4 + originalChunks.length + exifChunk.length, 4);
-  riffHeader.write('WEBP', 8, 'ascii');
+  // 5. Insert EXIF after VP8X
+  chunks.splice(vp8xIdx + 1, 0, exifChunk);
 
-  return Buffer.concat([riffHeader, originalChunks, exifChunk]);
+  // 6. Reassemble RIFF
+  const body     = Buffer.concat(chunks.map(c => c.data));
+  const newHeader = Buffer.alloc(12);
+  newHeader.write('RIFF', 0);
+  newHeader.writeUInt32LE(body.length + 4, 4);
+  newHeader.write('WEBP', 8);
+
+  return Buffer.concat([newHeader, body]);
 }

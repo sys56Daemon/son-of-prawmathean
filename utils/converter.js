@@ -35,7 +35,9 @@ export async function convertToStaticWebP(imageBuffer) {
       '-y',
       '-i', inputPath,
       '-vf', `scale=${MAX_SIZE}:${MAX_SIZE}:force_original_aspect_ratio=decrease,pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
+      '-pix_fmt', 'yuva420p', // Ensure alpha channel for compatibility
       '-compression_level', '6',
+      '-q:v', '70',           // Slightly lower quality to keep file size safe for mobile
       outputPath,
     ]);
 
@@ -67,11 +69,13 @@ export async function convertToAnimatedWebP(gifBuffer) {
     await execFileAsync('ffmpeg', [
       '-y',
       '-i', inputPath,
-      '-vf', vf,
+      '-vf', `${vf},fps=15`,   // Cap FPS to 15 to save file size/processing
+      '-pix_fmt', 'yuva420p',
       '-loop', '0',
       '-preset', 'default',
       '-an',
       '-vsync', '0',
+      '-s', `${MAX_SIZE}x${MAX_SIZE}`,
       outputPath,
     ]);
 
