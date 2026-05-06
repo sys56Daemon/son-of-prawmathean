@@ -11,8 +11,8 @@ const MAX_SIZE = 512;
 
 /**
  * Convert a static image buffer (JPEG, PNG, WebP, etc.) to a 512x512 WebP buffer.
- * Uses jimp v1 (pure JS) — works on Arch Linux / Termux without native binaries.
- * Note: jimp outputs PNG internally; ffmpeg converts to WebP for sticker compatibility.
+ * Uses jimp (pure JS) for resizing — works on Arch Linux and Termux.
+ * Uses ffmpeg default WebP encoder (simple, produces plain VP8 chunk).
  */
 export async function convertToStaticWebP(imageBuffer) {
   const id = randomUUID();
@@ -20,29 +20,19 @@ export async function convertToStaticWebP(imageBuffer) {
   const outputPath = join(tmpdir(), `wabot_out_${id}.webp`);
 
   try {
-    // Resize with jimp v1 (pure JS, no native deps)
     const image = await Jimp.fromBuffer(imageBuffer);
-    // containWithin: fit inside MAX_SIZE x MAX_SIZE, preserving aspect ratio
     const w = image.width;
     const h = image.height;
     const scale = Math.min(MAX_SIZE / w, MAX_SIZE / h);
     image.resize({ w: Math.round(w * scale), h: Math.round(h * scale) });
     const pngBuffer = await image.getBuffer('image/png');
 
-    // Write PNG, then convert to WebP via ffmpeg with explicit libwebp encoder.
-    // IMPORTANT: The default ffmpeg webp encoder wraps even static images in
-    // ANIM/ANMF chunks, which Android's strict libwebp decoder can't parse as stickers.
-    // libwebp produces the correct VP8X → ALPH → VP8 chunk structure.
     await writeFile(inputPath, pngBuffer);
     await execFileAsync('ffmpeg', [
       '-y',
       '-i', inputPath,
-      '-vf', `scale=${MAX_SIZE}:${MAX_SIZE}:force_original_aspect_ratio=decrease,pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
-      '-vcodec', 'libwebp',
-      '-lossless', '0',
+      '-vf', `scale=${MAX_SIZE}:${MAX_SIZE}:force_original_aspect_ratio=decrease,pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2`,
       '-compression_level', '6',
-      '-q:v', '80',
-      '-preset', 'drawing',
       outputPath,
     ]);
 
@@ -55,7 +45,7 @@ export async function convertToStaticWebP(imageBuffer) {
 
 /**
  * Convert an animated GIF/video buffer to an animated WebP buffer using ffmpeg.
- * Requires: pkg install ffmpeg  (Termux) or  apt install ffmpeg  (Debian)
+ * Requires: pkg install ffmpeg (Termux) or pacman -S ffmpeg (Arch)
  */
 export async function convertToAnimatedWebP(gifBuffer) {
   const id = randomUUID();
@@ -65,22 +55,16 @@ export async function convertToAnimatedWebP(gifBuffer) {
   try {
     await writeFile(inputPath, gifBuffer);
 
-    // Scale to fit within 512x512 keeping aspect ratio, transparent pad if needed
     const vf = [
       `scale='if(gt(iw,ih),${MAX_SIZE},-2)':'if(gt(iw,ih),-2,${MAX_SIZE})'`,
-      `pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
+      `pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2`,
     ].join(',');
 
     await execFileAsync('ffmpeg', [
       '-y',
       '-i', inputPath,
-      '-vf', `${vf},fps=15`,
-      '-vcodec', 'libwebp_anim',
-      '-lossless', '0',
-      '-compression_level', '6',
-      '-q:v', '75',
+      '-vf', vf,
       '-loop', '0',
-      '-preset', 'default',
       '-an',
       '-vsync', '0',
       outputPath,
