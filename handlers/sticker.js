@@ -7,8 +7,8 @@ const logger = pino({ level: 'silent' });
 
 // Matches: .sticker, sticker, .sticker Pack, .sticker Pack Author
 const COMMAND_REGEX = /^\.?sticker(?:\s+(\S+))?(?:\s+(\S+))?$/i;
-const DEFAULT_PACK = 'My Stickers';
-const DEFAULT_AUTHOR = 'waBot';
+const DEFAULT_PACK = 'yo mama so fat';
+const DEFAULT_AUTHOR = 'prawmathean';
 
 export async function handleStickerCommand(sock, msg) {
   try {
