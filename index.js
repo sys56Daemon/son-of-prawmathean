@@ -53,18 +53,20 @@ async function handleMessage(sock, msg) {
 
   if (!prefixRe.test(text) && !isBareCmd) return;
 
-  // Resolve sender and run permission guards only for commands
+  // Resolve sender JID
   const jid    = msg.key.remoteJid;
   const sender  = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
 
-  // ── LID check ─────────────────────────────────────────────────────────────
-  const botLid        = sock.user?.lid ?? '';
-  const senderIsOwner = sender && typeof sender === 'string' && sender.endsWith('@lid')
-    ? botLid && getNumber(sender) === getNumber(botLid)  // LID match → owner
+  // ── Permission check ─────────────────────────────────────────────────────
+  // If sender is a LID (@lid), compare against the bot's own LID.
+  // If sender is a normal JID, use isAllowed() (checks ownerNumber + allowedNumbers).
+  const botLid = sock.user?.lid ?? '';
+  const senderLidMatchesOwner = sender?.endsWith('@lid') && botLid
+    ? getNumber(sender) === getNumber(botLid)
     : false;
 
-  if (!isAllowed(sender) && !senderIsOwner) {
-    console.log(`[debug] Command ignored: sender +${getNumber(sender)} is not authorized.`);
+  if (!senderLidMatchesOwner && !isAllowed(sender)) {
+    console.log(`[debug] Ignored: sender ${sender} not authorized.`);
     return;
   }
 
@@ -191,6 +193,9 @@ async function connectToWhatsApp() {
       const sender  = msg.key.participant ?? msg.key.remoteJid;
       // Always log incoming messages so you can see what the bot receives
       console.log(`[recv] type=${type} fromMe=${msg.key.fromMe} sender=+${sender} text="${rawText.slice(0,40)}"`);
+      if (rawText.startsWith('.')) {
+        console.log('[DEBUG] Full message object:', JSON.stringify(msg, null, 2));
+      }
     }
     if (type !== 'notify') return;
     for (const msg of messages) {
