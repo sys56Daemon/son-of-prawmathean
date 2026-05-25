@@ -7,7 +7,8 @@ const FONT_DIR = join(__dirname, '../assets/fonts');
 
 // Dynamically load canvas so the bot doesn't crash on Termux
 let canvasSupported = false;
-let createCanvas, GlobalFonts;
+let usePureImage = false;
+let createCanvas, GlobalFonts, PImage;
 
 try {
   const canvasMod = await import('@napi-rs/canvas');
@@ -24,8 +25,29 @@ try {
   
   canvasSupported = true;
 } catch (e) {
-  console.warn('\n⚠️  @napi-rs/canvas could not be loaded. Certificate generation will be disabled.');
-  console.warn('   (This is expected on some Termux/Android environments without native binaries)\n');
+  console.warn('\n⚠️  @napi-rs/canvas could not be loaded. Attempting pureimage fallback...');
+  try {
+    const pi = await import('pureimage');
+    PImage = pi.default || pi;
+    
+    // Pureimage font registration
+    const regular = PImage.registerFont(join(FONT_DIR, 'NotoSerif-Regular.ttf'), 'Noto Serif');
+    const bold    = PImage.registerFont(join(FONT_DIR, 'NotoSerif-Bold.ttf'), 'Noto Serif');
+    const italic  = PImage.registerFont(join(FONT_DIR, 'NotoSerif-Italic.ttf'), 'Noto Serif');
+    
+    await Promise.all([
+      new Promise(res => regular.load(res)),
+      new Promise(res => bold.load(res)),
+      new Promise(res => italic.load(res)),
+    ]);
+
+    createCanvas = (w, h) => PImage.make(w, h);
+    usePureImage = true;
+    canvasSupported = true;
+    console.log('✅ pureimage fallback loaded successfully.\n');
+  } catch (err) {
+    console.warn('❌ pureimage fallback also failed. Certificate generation will be disabled.\n');
+  }
 }
 
 // ─── Arg Parser ───────────────────────────────────────────────────────────────
@@ -320,6 +342,14 @@ async function generateCertificate(name, position) {
   ctx.font      = '18px "Noto Sans"';
   ctx.fillStyle = GOLD;
   ctx.fillText('✦  ✦  ✦  ✦  ✦  ✦  ✦  ✦  ✦', W / 2, 848);
+
+  if (usePureImage) {
+    const stream = new (await import('stream')).PassThrough();
+    await PImage.encodePNGToStream(canvas, stream);
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    return Buffer.concat(chunks);
+  }
 
   return canvas.toBuffer('image/png');
 }

@@ -44,7 +44,11 @@ async function requireBotAdmin(sock, msg) {
 }
 
 function getMentioned(msg) {
-  return msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
+  const contextInfo = 
+    msg.message?.extendedTextMessage?.contextInfo ||
+    msg.message?.imageMessage?.contextInfo ||
+    msg.message?.videoMessage?.contextInfo;
+  return contextInfo?.mentionedJid ?? [];
 }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
