@@ -1,4 +1,3 @@
-import { Jimp } from 'jimp';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { writeFile, readFile, unlink } from 'fs/promises';
@@ -10,33 +9,32 @@ const execFileAsync = promisify(execFile);
 const MAX_SIZE = 512;
 
 /**
- * Convert a static image buffer (JPEG, PNG, WebP, etc.) to a 512x512 WebP buffer.
- * Uses jimp (pure JS) for resizing — works on Arch Linux and Termux.
- * Uses ffmpeg default WebP encoder (simple, produces plain VP8 chunk).
+ * Convert a static image buffer to a 512x512 WebP.
+ * Writes the raw downloaded buffer directly to disk — no Jimp step.
+ * ffmpeg handles resizing + conversion, which works reliably on Termux.
  */
 export async function convertToStaticWebP(imageBuffer) {
   const id = randomUUID();
-  const inputPath  = join(tmpdir(), `wabot_in_${id}.png`);
+  const inputPath  = join(tmpdir(), `wabot_in_${id}.jpg`);
   const outputPath = join(tmpdir(), `wabot_out_${id}.webp`);
 
   try {
-    const image = await Jimp.fromBuffer(imageBuffer);
-    const w = image.width;
-    const h = image.height;
-    const scale = Math.min(MAX_SIZE / w, MAX_SIZE / h);
-    image.resize({ w: Math.round(w * scale), h: Math.round(h * scale) });
-    const pngBuffer = await image.getBuffer('image/png');
+    await writeFile(inputPath, imageBuffer);
 
-    await writeFile(inputPath, pngBuffer);
-    await execFileAsync('ffmpeg', [
+    const { stderr } = await execFileAsync('ffmpeg', [
       '-y',
       '-i', inputPath,
       '-vf', `scale=${MAX_SIZE}:${MAX_SIZE}:force_original_aspect_ratio=decrease,pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2`,
       '-compression_level', '6',
       outputPath,
-    ]);
+    ]).catch(err => {
+      console.error('[converter] ffmpeg static error:', err.stderr || err.message);
+      throw err;
+    });
 
-    return await readFile(outputPath);
+    const result = await readFile(outputPath);
+    console.log(`[converter] static WebP size: ${result.length} bytes`);
+    return result;
   } finally {
     await unlink(inputPath).catch(() => {});
     await unlink(outputPath).catch(() => {});
@@ -44,8 +42,7 @@ export async function convertToStaticWebP(imageBuffer) {
 }
 
 /**
- * Convert an animated GIF/video buffer to an animated WebP buffer using ffmpeg.
- * Requires: pkg install ffmpeg (Termux) or pacman -S ffmpeg (Arch)
+ * Convert an animated GIF/video buffer to an animated WebP.
  */
 export async function convertToAnimatedWebP(gifBuffer) {
   const id = randomUUID();
@@ -68,9 +65,14 @@ export async function convertToAnimatedWebP(gifBuffer) {
       '-an',
       '-vsync', '0',
       outputPath,
-    ]);
+    ]).catch(err => {
+      console.error('[converter] ffmpeg animated error:', err.stderr || err.message);
+      throw err;
+    });
 
-    return await readFile(outputPath);
+    const result = await readFile(outputPath);
+    console.log(`[converter] animated WebP size: ${result.length} bytes`);
+    return result;
   } finally {
     await unlink(inputPath).catch(() => {});
     await unlink(outputPath).catch(() => {});

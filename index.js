@@ -5,10 +5,26 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
 import pino from 'pino';
 import { rm } from 'fs/promises';
 
 import config from './config.js';
+
+// ── Suppress libsignal Decryption Noise ───────────────────────────────────────
+const originalConsoleError = console.error;
+console.error = function (...args) {
+  const firstArg = args[0] ? String(args[0]) : '';
+  if (
+    firstArg.includes('Failed to decrypt message with any known session') ||
+    firstArg.includes('Session error:Error: Bad MAC') ||
+    args.some(arg => typeof arg === 'string' && (arg.includes('libsignal') || arg.includes('decryptWithSessions')))
+  ) {
+    return;
+  }
+  originalConsoleError.apply(console, args);
+};
+
 import { isAllowed, getNumber, isUnconfigured } from './utils/permissions.js';
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -23,21 +39,6 @@ import { handleQR } from './handlers/qr.js';
 async function handleMessage(sock, msg) {
   if (!msg.message) return;
 
-  const jid    = msg.key.remoteJid;
-  const sender  = msg.key.participant ?? (msg.key.fromMe ? sock.user.id : jid);
-
-  // ── LID check ─────────────────────────────────────────────────────────────
-  // In GROUP chats WhatsApp hides phone numbers behind a random @lid identifier.
-  // We detect the owner by comparing the numeric part of the sender's LID
-  // against the bot's own LID (sock.user.lid), since they share the same account.
-  const botLid        = sock.user?.lid ?? '';
-  const senderIsOwner = sender.endsWith('@lid')
-    ? botLid && getNumber(sender) === getNumber(botLid)  // LID match → owner
-    : false;                                              // phone JIDs handled by isAllowed
-
-  // ── Permission guard ──────────────────────────────────────────────────────
-  if (!isAllowed(sender) && !senderIsOwner) return;
-
   const text = (
     msg.message?.conversation ||
     msg.message?.extendedTextMessage?.text ||
@@ -51,6 +52,21 @@ async function handleMessage(sock, msg) {
   const isBareCmd = BARE_CMDS.some(cmd => new RegExp(`^${cmd}(\\s|$)`, 'i').test(text));
 
   if (!prefixRe.test(text) && !isBareCmd) return;
+
+  // Resolve sender and run permission guards only for commands
+  const jid    = msg.key.remoteJid;
+  const sender  = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
+
+  // ── LID check ─────────────────────────────────────────────────────────────
+  const botLid        = sock.user?.lid ?? '';
+  const senderIsOwner = sender && typeof sender === 'string' && sender.endsWith('@lid')
+    ? botLid && getNumber(sender) === getNumber(botLid)  // LID match → owner
+    : false;
+
+  if (!isAllowed(sender) && !senderIsOwner) {
+    console.log(`[debug] Command ignored: sender +${getNumber(sender)} is not authorized.`);
+    return;
+  }
 
   const body    = prefixRe.test(text) ? text.slice(config.prefix.length) : text;
   const parts   = body.trim().split(/\s+/);
@@ -119,6 +135,18 @@ async function connectToWhatsApp() {
       console.clear();
       console.log('📱 Scan this QR code with WhatsApp:\n');
       qrcode.generate(qr, { small: true });
+      try {
+        await QRCode.toFile('./qr.png', qr, {
+          color: {
+            dark: '#000000',
+            light: '#ffffff'
+          },
+          width: 300
+        });
+        console.log('📷 Saved QR code image to ./qr.png - open and scan it in your workspace!');
+      } catch (err) {
+        console.error('Failed to save QR code image:', err);
+      }
     }
 
     if (connection === 'close') {
@@ -139,6 +167,9 @@ async function connectToWhatsApp() {
         }
         console.log('   Clearing session and showing a new QR...\n');
         await rm('./auth_info', { recursive: true, force: true });
+        try {
+          await rm('./qr.png', { force: true });
+        } catch {}
         connectToWhatsApp();
       } else {
         console.log(`\n⚠️  Disconnected (code: ${code}). Reconnecting...`);
@@ -148,6 +179,9 @@ async function connectToWhatsApp() {
     } else if (connection === 'open') {
       console.log(`\n✅ Connected as +${getNumber(sock.user.id)}`);
       console.log(`📋 Commands: ${config.prefix}ping | ${config.prefix}help | ${config.prefix}sticker | ${config.prefix}toimg | certificate | qr | ${config.prefix}tagall | ${config.prefix}kick\n`);
+      try {
+        await rm('./qr.png', { force: true });
+      } catch {}
     }
   });
 

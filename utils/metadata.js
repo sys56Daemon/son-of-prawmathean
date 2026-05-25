@@ -4,8 +4,8 @@ import { randomUUID } from 'crypto';
  * Injects WhatsApp sticker pack metadata into a WebP buffer.
  *
  * Strategy: Build an EXIF chunk containing the JSON metadata and
- * splice it into the WebP RIFF container. This is the simplest approach
- * and the one that WhatsApp has been proven to accept on both mobile and web.
+ * append it to the end of the existing WebP RIFF stream.
+ * Final structure: VP8 → EXIF  (no VP8X needed for WhatsApp mobile)
  */
 export async function addStickerMetadata(webpBuffer, packName, authorName) {
   const json = JSON.stringify({
@@ -38,8 +38,8 @@ function buildExif(jsonString) {
   //  10  - 21: IFD entry     (tag + type + count + valueOffset)
   //  22  - 25: next-IFD pointer (0)
   //  26+     : JSON bytes
-  const IFD_OFFSET   = 8;
-  const DATA_OFFSET  = 26; // IFD_OFFSET + 2 (count) + 12 (entry) + 4 (next-IFD)
+  const IFD_OFFSET  = 8;
+  const DATA_OFFSET = 26; // IFD_OFFSET + 2 (count) + 12 (entry) + 4 (next-IFD)
 
   const tiff = Buffer.alloc(DATA_OFFSET + json.length);
   let p = 0;
@@ -63,6 +63,7 @@ function buildExif(jsonString) {
 
 /**
  * Appends an EXIF chunk to a WebP (RIFF) buffer and updates the RIFF size.
+ * Simple append to end — no VP8X manipulation needed.
  */
 function injectExif(webpBuffer, jsonString) {
   if (
@@ -70,22 +71,26 @@ function injectExif(webpBuffer, jsonString) {
     webpBuffer.slice(8, 12).toString() !== 'WEBP'
   ) throw new Error('Not a valid WebP buffer');
 
-  const exifData   = buildExif(jsonString);
-  const pad        = exifData.length % 2 === 1 ? Buffer.alloc(1) : Buffer.alloc(0);
+  const exifData = buildExif(jsonString);
+  const chunkSize = exifData.length;
+  const pad = chunkSize % 2 === 1 ? Buffer.alloc(1) : Buffer.alloc(0);
 
-  // EXIF chunk: 4-byte FourCC + 4-byte size (LE) + payload + optional pad byte
+  // EXIF chunk: 4-byte FourCC + 4-byte LE size + payload + optional pad byte
   const chunkHdr = Buffer.alloc(8);
-  chunkHdr.write('EXIF');
-  chunkHdr.writeUInt32LE(exifData.length, 4);
+  chunkHdr.write('EXIF', 0);
+  chunkHdr.writeUInt32LE(chunkSize, 4);
   const exifChunk = Buffer.concat([chunkHdr, exifData, pad]);
 
-  // Rebuild RIFF: original bytes 0-11 (RIFF+size+WEBP) with updated size, then body + EXIF
-  const body      = webpBuffer.slice(12); // everything after "RIFF<size>WEBP"
-  const newSize   = 4 + body.length + exifChunk.length; // 4 = "WEBP"
-  const riffHdr   = Buffer.alloc(12);
-  riffHdr.write('RIFF');
-  riffHdr.writeUInt32LE(newSize, 4);
-  riffHdr.write('WEBP', 8);
+  // Existing body (everything after the 12-byte RIFF/WEBP header)
+  const existingBody = webpBuffer.slice(12);
 
-  return Buffer.concat([riffHdr, body, exifChunk]);
+  // New RIFF size = 4 ("WEBP") + existing body + new EXIF chunk
+  const newRiffSize = 4 + existingBody.length + exifChunk.length;
+
+  const newHeader = Buffer.alloc(12);
+  newHeader.write('RIFF', 0);
+  newHeader.writeUInt32LE(newRiffSize, 4);
+  newHeader.write('WEBP', 8);
+
+  return Buffer.concat([newHeader, existingBody, exifChunk]);
 }

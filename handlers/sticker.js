@@ -60,15 +60,19 @@ export async function handleStickerCommand(sock, msg) {
     await sock.sendMessage(jid, { react: { text: '⏳', key: msg.key } });
 
     // Download media
+    console.log('[sticker] downloading media, type:', msgType);
     const mediaBuffer = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger });
+    console.log('[sticker] downloaded bytes:', mediaBuffer?.length ?? 0);
 
     // Convert to WebP
     const webpBuffer = isGif
       ? await convertToAnimatedWebP(mediaBuffer)
       : await convertToStaticWebP(mediaBuffer);
+    console.log('[sticker] webp bytes:', webpBuffer?.length ?? 0);
 
     // Embed sticker metadata
     const stickerBuffer = await addStickerMetadata(webpBuffer, packName, authorName, isGif);
+    console.log('[sticker] final sticker bytes:', stickerBuffer?.length ?? 0);
 
     // Send sticker
     await sock.sendMessage(jid, {
@@ -79,7 +83,7 @@ export async function handleStickerCommand(sock, msg) {
     await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });
 
   } catch (err) {
-    console.error('[sticker] Error:', err.message);
+    console.error('[sticker] Error:', err.message, err.stack);
     await sock.sendMessage(msg.key.remoteJid, {
       text: `❌ Failed to create sticker: ${err.message}`,
     }, { quoted: msg });
