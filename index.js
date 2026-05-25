@@ -42,6 +42,8 @@ async function handleMessage(sock, msg) {
   const text = (
     msg.message?.conversation ||
     msg.message?.extendedTextMessage?.text ||
+    msg.message?.imageMessage?.caption ||
+    msg.message?.videoMessage?.caption ||
     ''
   ).trim();
 
@@ -58,22 +60,28 @@ async function handleMessage(sock, msg) {
   const sender  = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
 
   // ── Permission check ─────────────────────────────────────────────────────
-  // If sender is a LID (@lid), compare against the bot's own LID.
-  // If sender is a normal JID, use isAllowed() (checks ownerNumber + allowedNumbers).
-  const botLid = sock.user?.lid ?? '';
-  const senderLidMatchesOwner = sender?.endsWith('@lid') && botLid
-    ? getNumber(sender) === getNumber(botLid)
-    : false;
+  const isFromMe = msg.key.fromMe;
+  const botLid   = sock.user?.lid;
+  
+  // A sender is authorized if:
+  // 1. It's a message from the bot account itself (sent by you or the bot)
+  // 2. The bot is in public mode (!config.private)
+  // 3. The sender is the owner or in the allowed list (isAllowed)
+  // 4. The sender is a LID that matches the bot's own LID
+  const isAuthorized = 
+    isFromMe || 
+    !config.private || 
+    isAllowed(sender) || 
+    (sender?.endsWith('@lid') && botLid && getNumber(sender) === getNumber(botLid));
 
-  if (!senderLidMatchesOwner && !isAllowed(sender)) {
-    console.log(`[debug] Ignored: sender ${sender} not authorized.`);
+  if (!isAuthorized) {
+    console.log(`[debug] Ignored: sender ${sender} not authorized (private mode).`);
     return;
   }
 
   const body    = prefixRe.test(text) ? text.slice(config.prefix.length) : text;
-  const parts   = body.trim().split(/\s+/);
-  const command = parts[0].toLowerCase();
-  const args    = parts.slice(1);
+  const command = body.trim().split(/\s+/)[0].toLowerCase();
+  const args    = body.trim().slice(command.length).trim();
 
   try {
     switch (command) {
@@ -81,7 +89,7 @@ async function handleMessage(sock, msg) {
       case 'alive':       await handleAlive(sock, msg);               break;
       case 'info':        await handleInfo(sock, msg);                break;
       case 'help':        await handleHelp(sock, msg);                break;
-      case 'sticker':     await handleStickerCommand(sock, msg);      break;
+      case 'sticker':     await handleStickerCommand(sock, msg, args); break;
       case 'toimg':       await handleToImg(sock, msg);               break;
       case 'certify':
       case 'certificate': await handleCertificate(sock, msg, args);   break;

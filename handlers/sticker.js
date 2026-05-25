@@ -10,48 +10,44 @@ const COMMAND_REGEX = /^\.?sticker(?:\s+(\S+))?(?:\s+(\S+))?$/i;
 const DEFAULT_PACK = 'yo mama so fat';
 const DEFAULT_AUTHOR = 'prawmathean';
 
-export async function handleStickerCommand(sock, msg) {
+export async function handleStickerCommand(sock, msg, args) {
   try {
-    // Extract text from either a plain or extended text message
-    const text =
-      msg.message?.conversation ||
-      msg.message?.extendedTextMessage?.text ||
-      '';
+    const jid = msg.key.remoteJid;
 
-    const match = text.trim().match(COMMAND_REGEX);
-    if (!match) return;
+    // Parse pack and author from args (supports: .sticker "Pack Name" "Author Name")
+    const argMatch = args.match(/"([^"]+)"|'([^']+)'|(\S+)/g) || [];
+    const packName   = (argMatch[0] || DEFAULT_PACK).replace(/['"]/g, '');
+    const authorName = (argMatch[1] || DEFAULT_AUTHOR).replace(/['"]/g, '');
 
-    const packName   = match[1] || DEFAULT_PACK;
-    const authorName = match[2] || DEFAULT_AUTHOR;
-    const jid        = msg.key.remoteJid;
+    // Determine the source of the media (either the message itself or a quoted one)
+    let targetMsg = msg;
+    let msgType   = getContentType(msg.message);
 
-    // Must be a reply
-    const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
-    if (!contextInfo?.quotedMessage) {
-      await sock.sendMessage(jid, {
-        text: '❌ Please *reply to an image or GIF* with the `.sticker` command.',
-      }, { quoted: msg });
-      return;
+    const contextInfo = 
+      msg.message?.extendedTextMessage?.contextInfo ||
+      msg.message?.imageMessage?.contextInfo ||
+      msg.message?.videoMessage?.contextInfo;
+
+    if (contextInfo?.quotedMessage) {
+      targetMsg = {
+        key: {
+          remoteJid: jid,
+          id: contextInfo.stanzaId,
+          fromMe: false,
+          participant: contextInfo.participant,
+        },
+        message: contextInfo.quotedMessage,
+      };
+      msgType = getContentType(targetMsg.message);
     }
 
-    const quotedMsg = {
-      key: {
-        remoteJid: jid,
-        id: contextInfo.stanzaId,
-        fromMe: false,
-        participant: contextInfo.participant,
-      },
-      message: contextInfo.quotedMessage,
-    };
-
-    const msgType = getContentType(quotedMsg.message);
     const isImage = msgType === 'imageMessage';
     const isVideo = msgType === 'videoMessage';
-    const isGif   = isVideo && quotedMsg.message?.videoMessage?.gifPlayback === true;
+    const isGif   = isVideo && targetMsg.message?.videoMessage?.gifPlayback === true;
 
     if (!isImage && !isGif) {
       await sock.sendMessage(jid, {
-        text: '❌ I can only convert *images* and *GIFs* to stickers.',
+        text: '❌ Please *reply to an image/GIF* or send one with the `.sticker` caption.',
       }, { quoted: msg });
       return;
     }
@@ -61,7 +57,7 @@ export async function handleStickerCommand(sock, msg) {
 
     // Download media
     console.log('[sticker] downloading media, type:', msgType);
-    const mediaBuffer = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger });
+    const mediaBuffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger });
     console.log('[sticker] downloaded bytes:', mediaBuffer?.length ?? 0);
 
     // Convert to WebP
@@ -77,6 +73,7 @@ export async function handleStickerCommand(sock, msg) {
     // Send sticker
     await sock.sendMessage(jid, {
       sticker: stickerBuffer,
+      mimetype: 'image/webp',
     }, { quoted: msg });
 
     // Done reaction

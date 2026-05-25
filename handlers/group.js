@@ -1,4 +1,4 @@
-import { isGroupAdmin, isBotAdmin } from '../utils/permissions.js';
+import { isGroupAdmin, isBotAdmin, isOwner } from '../utils/permissions.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -19,6 +19,10 @@ async function requireGroup(sock, msg) {
 async function requireAdmin(sock, msg) {
   const jid    = msg.key.remoteJid;
   const sender = msg.key.participant ?? msg.key.remoteJid;
+
+  // Owner bypass
+  if (msg.key.fromMe || isOwner(sender)) return true;
+
   const admin  = await isGroupAdmin(sock, jid, sender);
   if (!admin) {
     await sock.sendMessage(jid, {
@@ -54,7 +58,7 @@ export async function handleTagAll(sock, msg, args) {
   const meta = await sock.groupMetadata(jid);
   const participants = meta.participants;
   const mentions     = participants.map(p => p.id);
-  const customMsg    = args.join(' ') || '\t';
+  const customMsg    = args.trim() || '\t';
 
   const tagList = participants.map(p => `@${p.id.split('@')[0]}`).join(' ');
   await sock.sendMessage(jid, {

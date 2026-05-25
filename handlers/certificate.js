@@ -73,7 +73,7 @@ export async function handleCertificate(sock, msg, args) {
     return;
   }
 
-  if (!args.length) {
+  if (!args.trim()) {
     await sock.sendMessage(jid, {
       text:
         '❌ *Usage:*\n' +
@@ -89,7 +89,7 @@ export async function handleCertificate(sock, msg, args) {
 
   // Extract @mentions from WhatsApp context
   const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ?? [];
-  const { name, position } = parseArgs(args.join(' '), mentionedJids);
+  const { name, position } = parseArgs(args, mentionedJids);
   const imgBuffer = await generateCertificate(name, position);
 
   // Tag the mentioned person in the reply if present

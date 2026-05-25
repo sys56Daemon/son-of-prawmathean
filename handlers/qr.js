@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 export async function handleQR(sock, msg, args) {
   const jid = msg.key.remoteJid;
 
-  if (!args.length) {
+  if (!args.trim()) {
     await sock.sendMessage(jid, {
       text: '❌ Usage: `qr <text>`\nExample: `qr Hello World`',
     }, { quoted: msg });
@@ -11,7 +11,7 @@ export async function handleQR(sock, msg, args) {
   }
 
   // Strip surrounding quotes if user wrapped the text
-  const text = args.join(' ').trim().replace(/^['"]|['"]$/g, '') || 'Hello!';
+  const text = args.trim().replace(/^['"]|['"]$/g, '') || 'Hello!';
 
   await sock.sendMessage(jid, { react: { text: '⏳', key: msg.key } });
 

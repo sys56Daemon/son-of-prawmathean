@@ -103,7 +103,7 @@ export async function handleHelp(sock, msg) {
 
 /** .toimg — convert a quoted sticker back to PNG */
 export async function handleToImg(sock, msg) {
-  const { default: Jimp }                = await import('jimp');
+  const { Jimp }                         = await import('jimp');
   const { downloadMediaMessage }         = await import('@whiskeysockets/baileys');
   const { default: pino }                = await import('pino');
   const logger                           = pino({ level: 'silent' });
@@ -136,7 +136,7 @@ export async function handleToImg(sock, msg) {
   const webpBuf = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger });
   // Use jimp (pure JS) — works on Termux/android-arm64 without native binaries
   const image   = await Jimp.read(webpBuf);
-  const pngBuf  = await image.getBufferAsync(Jimp.MIME_PNG);
+  const pngBuf  = await image.getBuffer('image/png');
 
   await sock.sendMessage(jid, {
     image:   pngBuf,
@@ -149,7 +149,8 @@ export async function handleToImg(sock, msg) {
 /** .public — makes the bot usable by anyone (Owner only) */
 export async function handlePublic(sock, msg) {
   const { isOwner } = await import('../utils/permissions.js');
-  if (!isOwner(msg.key.participant ?? msg.key.remoteJid)) return;
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!msg.key.fromMe && !isOwner(sender)) return;
 
   config.private = false;
   await sock.sendMessage(msg.key.remoteJid, {
@@ -160,7 +161,8 @@ export async function handlePublic(sock, msg) {
 /** .private — restricts the bot to allowedNumbers (Owner only) */
 export async function handlePrivate(sock, msg) {
   const { isOwner } = await import('../utils/permissions.js');
-  if (!isOwner(msg.key.participant ?? msg.key.remoteJid)) return;
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!msg.key.fromMe && !isOwner(sender)) return;
 
   config.private = true;
   await sock.sendMessage(msg.key.remoteJid, {
@@ -171,7 +173,8 @@ export async function handlePrivate(sock, msg) {
 /** .mode — Toggles between Public and Private mode (Owner only) */
 export async function handleMode(sock, msg) {
   const { isOwner } = await import('../utils/permissions.js');
-  if (!isOwner(msg.key.participant ?? msg.key.remoteJid)) return;
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!msg.key.fromMe && !isOwner(sender)) return;
 
   config.private = !config.private;
   const status = config.private ? 'PRIVATE 🔒' : 'PUBLIC 🔓';

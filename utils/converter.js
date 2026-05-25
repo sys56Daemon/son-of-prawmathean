@@ -21,11 +21,15 @@ export async function convertToStaticWebP(imageBuffer) {
   try {
     await writeFile(inputPath, imageBuffer);
 
-    const { stderr } = await execFileAsync('ffmpeg', [
+    await execFileAsync('ffmpeg', [
       '-y',
       '-i', inputPath,
-      '-vf', `scale=${MAX_SIZE}:${MAX_SIZE}:force_original_aspect_ratio=decrease,pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2`,
-      '-compression_level', '6',
+      '-vf', `scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
+      '-vcodec', 'libwebp',
+      '-preset', 'default',
+      '-loop', '0',
+      '-an',
+      '-vsync', '0',
       outputPath,
     ]).catch(err => {
       console.error('[converter] ffmpeg static error:', err.stderr || err.message);
@@ -52,18 +56,18 @@ export async function convertToAnimatedWebP(gifBuffer) {
   try {
     await writeFile(inputPath, gifBuffer);
 
-    const vf = [
-      `scale='if(gt(iw,ih),${MAX_SIZE},-2)':'if(gt(iw,ih),-2,${MAX_SIZE})'`,
-      `pad=${MAX_SIZE}:${MAX_SIZE}:(ow-iw)/2:(oh-ih)/2`,
-    ].join(',');
-
     await execFileAsync('ffmpeg', [
       '-y',
       '-i', inputPath,
-      '-vf', vf,
+      '-vf', `scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
+      '-vcodec', 'libwebp',
+      '-lossless', '0',
+      '-compression_level', '6',
+      '-q:v', '50',
       '-loop', '0',
       '-an',
-      '-vsync', '0',
+      '-preset', 'picture',
+      '-fps_mode', 'passthrough',
       outputPath,
     ]).catch(err => {
       console.error('[converter] ffmpeg animated error:', err.stderr || err.message);
