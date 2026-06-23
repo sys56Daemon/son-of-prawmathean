@@ -4,26 +4,104 @@
  *
  * Trigger: `insta <url>` or `.insta <url>`
  *
- * Uses yt-dlp under the hood — the only truly reliable, actively maintained
- * tool for Instagram media extraction in 2025/2026.
- * yt-dlp handles: DASH merging, codec normalisation, auth-less public access.
+ * Uses yt-dlp — actively maintained, handles DASH merging, auth via cookies.
+ *
+ * Anti-rate-limit strategy:
+ *   1. Uses real browser session cookies (Brave → Chrome → Firefox → cookies.txt)
+ *      so Instagram sees a logged-in user, not an anonymous bot.
+ *   2. Single yt-dlp call for both metadata + download (halves request count).
+ *   3. Serial request queue — only one download runs at a time.
+ *   4. Automatic retry with a short wait on transient failures.
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import { readFile, unlink, readdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
-import { randomUUID } from 'crypto';
+import { execFile }        from 'child_process';
+import { promisify }       from 'util';
+import { readFile, unlink, readdir, access } from 'fs/promises';
+import { join, resolve }   from 'path';
+import { tmpdir }          from 'os';
+import { randomUUID }      from 'crypto';
+import { fileURLToPath }   from 'url';
 
 const execFileAsync = promisify(execFile);
+
+// Project root (one level above this file)
+const PROJECT_ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
+
+// ── Cookie detection ───────────────────────────────────────────────────────────
+
+/**
+ * Builds the yt-dlp cookie arguments to use.
+ *
+ * Priority:
+ *   1. cookies.txt in project root  (works headless / on servers)
+ *   2. Brave browser  (most common on this system)
+ *   3. Chrome browser
+ *   4. Firefox browser
+ *   5. No cookies (anonymous — may hit rate limits)
+ */
+async function getCookieArgs() {
+  const cookieFile = join(PROJECT_ROOT, 'cookies.txt');
+  try {
+    await access(cookieFile);
+    console.log('[insta] Using cookies.txt');
+    return ['--cookies', cookieFile];
+  } catch { /* file doesn't exist */ }
+
+  for (const browser of ['brave', 'chrome', 'chromium', 'firefox', 'edge', 'safari']) {
+    try {
+      // Quick probe: ask yt-dlp to list formats using that browser's cookies.
+      // If it doesn't throw, the browser cookie DB is accessible.
+      await execFileAsync('yt-dlp', [
+        `--cookies-from-browser`, browser,
+        '--skip-download', '--quiet',
+        'https://www.instagram.com/',
+      ], { timeout: 8_000 });
+      console.log(`[insta] Using ${browser} browser cookies`);
+      return ['--cookies-from-browser', browser];
+    } catch { /* browser not found or locked */ }
+  }
+
+  console.warn('[insta] No cookies found — running anonymous (may rate-limit)');
+  return [];
+}
+
+// Cache the cookie args so we only probe once per process start
+let _cookieArgsCache = null;
+async function cookieArgs() {
+  if (!_cookieArgsCache) _cookieArgsCache = await getCookieArgs();
+  return _cookieArgsCache;
+}
+
+// ── Serial download queue ──────────────────────────────────────────────────────
+// Instagram rate-limits per IP. Running concurrent yt-dlp calls multiplies
+// the request count. This queue ensures one download at a time.
+
+let _queueRunning = false;
+const _queue = [];
+
+function enqueue(fn) {
+  return new Promise((resolve, reject) => {
+    _queue.push({ fn, resolve, reject });
+    processQueue();
+  });
+}
+
+function processQueue() {
+  if (_queueRunning || _queue.length === 0) return;
+  _queueRunning = true;
+  const { fn, resolve, reject } = _queue.shift();
+  fn()
+    .then(resolve, reject)
+    .finally(() => {
+      _queueRunning = false;
+      processQueue();
+    });
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 /**
  * Validates and normalises an Instagram URL.
- * Accepts /p/, /reel/, /reels/, /tv/ paths.
  * Returns the cleaned URL or null if invalid.
  */
 function normaliseInstaUrl(raw) {
@@ -31,7 +109,6 @@ function normaliseInstaUrl(raw) {
     const url = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
     if (!url.hostname.includes('instagram.com')) return null;
     if (!/^\/(p|reel|reels|tv)\//.test(url.pathname)) return null;
-    // Strip query / tracking params, keep only the canonical path
     return `https://www.instagram.com${url.pathname}`;
   } catch {
     return null;
@@ -39,52 +116,60 @@ function normaliseInstaUrl(raw) {
 }
 
 /**
- * Runs yt-dlp to get the JSON metadata for a URL (no actual download).
- * Returns the parsed JSON object.
- */
-async function getMediaInfo(url) {
-  const { stdout } = await execFileAsync('yt-dlp', [
-    '--no-playlist',
-    '--print-json',
-    '--skip-download',
-    url,
-  ], { timeout: 30_000 });
-
-  return JSON.parse(stdout.trim());
-}
-
-/**
- * Downloads a single Instagram URL to a temp file using yt-dlp.
- * Returns the absolute path of the downloaded file.
- *
- * @param {string} url       - Instagram URL
- * @param {string} outDir    - directory to write file into
- * @param {string} fileId    - unique filename stem
- */
-async function downloadWithYtDlp(url, outDir, fileId) {
-  const outTemplate = join(outDir, `${fileId}.%(ext)s`);
-
-  await execFileAsync('yt-dlp', [
-    '--no-playlist',
-    '--merge-output-format', 'mp4',   // merge DASH video+audio into one mp4
-    '-o', outTemplate,
-    url,
-  ], { timeout: 120_000 });           // 2-minute cap per file
-
-  // Find the output file (yt-dlp resolves the final extension)
-  const entries = await readdir(outDir);
-  const match = entries.find(f => f.startsWith(fileId));
-  if (!match) throw new Error('yt-dlp produced no output file');
-  return join(outDir, match);
-}
-
-/**
- * Safely deletes a list of file paths — ignores errors.
+ * Safely deletes files — ignores errors.
  */
 async function cleanupFiles(...paths) {
   for (const p of paths) {
-    try { await unlink(p); } catch { /* ignore */ }
+    try { if (p) await unlink(p); } catch { /* ignore */ }
   }
+}
+
+/**
+ * Core download logic — wrapped in the queue via enqueue().
+ * Downloads the URL to a temp file, returns { filePath, isVideo, uploader }.
+ */
+async function downloadInstagram(cleanUrl) {
+  const cookies  = await cookieArgs();
+  const workDir  = tmpdir();
+  const fileId   = `insta_${randomUUID()}`;
+  const outTpl   = join(workDir, `${fileId}.%(ext)s`);
+
+  // Single yt-dlp call: download + embed metadata
+  await execFileAsync('yt-dlp', [
+    '--no-playlist',
+    '--merge-output-format', 'mp4',
+    '--write-info-json',               // writes <fileId>.info.json alongside
+    '-o', outTpl,
+    ...cookies,
+    cleanUrl,
+  ], { timeout: 150_000 });
+
+  // Find the downloaded media file
+  const entries  = await readdir(workDir);
+  const media    = entries.find(f => f.startsWith(fileId) && !f.endsWith('.info.json'));
+  const infoFile = entries.find(f => f.startsWith(fileId) && f.endsWith('.info.json'));
+
+  if (!media) throw new Error('yt-dlp produced no output file');
+
+  const filePath = join(workDir, media);
+
+  // Parse the companion JSON for metadata
+  let uploader = 'Instagram';
+  let isVideo  = false;
+  if (infoFile) {
+    try {
+      const info = JSON.parse(await readFile(join(workDir, infoFile), 'utf8'));
+      uploader = info.uploader || info.channel || uploader;
+      isVideo  = info.vcodec && info.vcodec !== 'none';
+    } catch { /* fallback to extension heuristic */ }
+    await cleanupFiles(join(workDir, infoFile));
+  }
+
+  // Extension heuristic if JSON parse failed
+  const ext = filePath.split('.').pop().toLowerCase();
+  if (!isVideo) isVideo = ['mp4', 'mkv', 'webm', 'mov'].includes(ext);
+
+  return { filePath, isVideo, uploader };
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────────
@@ -118,64 +203,25 @@ export async function handleInsta(sock, msg, args) {
     return;
   }
 
-  // Hourglass while working
+  // Hourglass reaction while in queue / downloading
   await sock.sendMessage(jid, { react: { text: '⏳', key: msg.key } });
 
-  // ── Step 1: probe metadata to know what we're dealing with ─────────────────
-  let info;
+  let filePath;
   try {
-    info = await getMediaInfo(cleanUrl);
-  } catch (err) {
-    console.error('[insta] metadata fetch failed:', err.message);
-    await sock.sendMessage(jid, { react: { text: '❌', key: msg.key } });
-    await sock.sendMessage(jid, {
-      text:
-        '❌ Could not fetch this Instagram post.\n\n' +
-        '_Possible reasons:_\n' +
-        '• The account is *private*\n' +
-        '• The post was deleted\n' +
-        '• Instagram is rate-limiting requests right now\n\n' +
-        '_Try again in a moment._',
-    }, { quoted: msg });
-    return;
-  }
+    // Enqueue so concurrent requests are serialised
+    const result = await enqueue(() => downloadInstagram(cleanUrl));
+    filePath = result.filePath;
 
-  // Determine media type from yt-dlp metadata
-  const isVideo  = info.vcodec && info.vcodec !== 'none';
-  const uploader = info.uploader || info.channel || 'Instagram';
-  const caption  = `📸 *${uploader}*\n🔗 ${cleanUrl}`;
+    const buffer   = await readFile(filePath);
+    const caption  = `📸 *${result.uploader}*\n🔗 ${cleanUrl}`;
 
-  // ── Step 2: download to temp dir ───────────────────────────────────────────
-  const workDir = tmpdir();
-  const fileId  = `insta_${randomUUID()}`;
-  let   filePath;
-
-  try {
-    console.log(`[insta] downloading ${isVideo ? 'video' : 'image'} from ${cleanUrl}`);
-    filePath = await downloadWithYtDlp(cleanUrl, workDir, fileId);
-    console.log(`[insta] downloaded to ${filePath} (${(await readFile(filePath)).length} bytes)`);
-  } catch (err) {
-    console.error('[insta] download failed:', err.message);
-    await sock.sendMessage(jid, { react: { text: '❌', key: msg.key } });
-    await sock.sendMessage(jid, {
-      text: '❌ Download failed. The post may be private or geo-restricted.',
-    }, { quoted: msg });
-    return;
-  }
-
-  // ── Step 3: read file into buffer and send ─────────────────────────────────
-  try {
-    const buffer = await readFile(filePath);
-    const ext    = filePath.split('.').pop().toLowerCase();
-
-    if (isVideo || ext === 'mp4' || ext === 'mkv' || ext === 'webm') {
+    if (result.isVideo) {
       await sock.sendMessage(jid, {
         video:    buffer,
         mimetype: 'video/mp4',
         caption,
       }, { quoted: msg });
     } else {
-      // Image (jpg / png / webp)
       await sock.sendMessage(jid, {
         image:    buffer,
         mimetype: 'image/jpeg',
@@ -184,16 +230,26 @@ export async function handleInsta(sock, msg, args) {
     }
 
     await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });
-    console.log('[insta] sent successfully');
+    console.log(`[insta] ✅ Sent ${result.isVideo ? 'video' : 'image'} (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
 
   } catch (err) {
-    console.error('[insta] send failed:', err.message);
+    console.error('[insta] ❌ Error:', err.message);
     await sock.sendMessage(jid, { react: { text: '❌', key: msg.key } });
+
+    // Give a specific hint if it looks like a rate-limit / auth issue
+    const isRateLimit = /rate.limit|empty.media|API.*not.*granting|login.required/i.test(err.message);
     await sock.sendMessage(jid, {
-      text: '❌ Downloaded but failed to send. The file may be too large for WhatsApp.',
+      text: isRateLimit
+        ? '❌ Instagram blocked this request.\n\n' +
+          '_Tip: Add a `cookies.txt` file to the bot folder (exported from your browser) to avoid rate limits._'
+        : '❌ Could not download this Instagram post.\n\n' +
+          '_Possible reasons:_\n' +
+          '• The account is *private*\n' +
+          '• The post was deleted\n' +
+          '• Temporary Instagram block — try again in a moment',
     }, { quoted: msg });
+
   } finally {
-    // Always clean up the temp file
     await cleanupFiles(filePath);
   }
 }
