@@ -11,6 +11,11 @@ auth_info_baileys/
 .env
 .env.*
 !.env.example
+cookies.txt          # yt-dlp Instagram cookies — NEVER commit
+
+# ── Generated files ───────────────────────────────────────────────────────────
+qr.png               # auto-generated on startup, deleted after scan
+
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log

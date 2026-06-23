@@ -9,7 +9,7 @@ export default {
 
   // Your WhatsApp number — international format, NO '+' or spaces
   // Example: +91 77362 21227  →  '917736221227'
-  ownerNumber: '919037972225',
+  ownerNumber: 'YOUR_NUMBER_HERE',  // e.g. '919876543210' (country code + number, no + or spaces)
 
   // PRIVATE MODE
   // true  → Only numbers in allowedNumbers (+ ownerNumber) can use the bot
@@ -19,8 +19,7 @@ export default {
   // Numbers allowed to use the bot when private: true
   // ownerNumber is ALWAYS allowed regardless of this list
   allowedNumbers: [
-    '917736221227',  
-    '919037972225'
+    'YOUR_NUMBER_HERE',  // add your number here
     // '91XXXXXXXXXX', // add a friend here if needed
   ],
 };
