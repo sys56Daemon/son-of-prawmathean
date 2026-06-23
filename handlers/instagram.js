@@ -34,12 +34,19 @@ const PROJECT_ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
  *
  * Priority:
  *   1. cookies.txt in project root  (works headless / on servers)
- *   2. Brave browser  (most common on this system)
+ *   2. Brave browser
  *   3. Chrome browser
- *   4. Firefox browser
- *   5. No cookies (anonymous — may hit rate limits)
+ *   4. Chromium browser
+ *   5. Firefox browser
+ *   6. No cookies (anonymous — may hit rate limits)
+ *
+ * Detection is done by checking if the browser's cookie DB file exists on disk
+ * — no network call needed, instant.
  */
 async function getCookieArgs() {
+  const home = process.env.HOME || '/root';
+
+  // 1. Manual cookies.txt in project root (best for headless / server deploys)
   const cookieFile = join(PROJECT_ROOT, 'cookies.txt');
   try {
     await access(cookieFile);
@@ -47,21 +54,23 @@ async function getCookieArgs() {
     return ['--cookies', cookieFile];
   } catch { /* file doesn't exist */ }
 
-  for (const browser of ['brave', 'chrome', 'chromium', 'firefox', 'edge', 'safari']) {
+  // 2. Auto-detect installed browser by checking cookie DB path on disk
+  const browserCookiePaths = [
+    { name: 'brave',    path: `${home}/.config/BraveSoftware/Brave-Browser/Default/Cookies` },
+    { name: 'chrome',   path: `${home}/.config/google-chrome/Default/Cookies` },
+    { name: 'chromium', path: `${home}/.config/chromium/Default/Cookies` },
+    { name: 'firefox',  path: `${home}/.mozilla/firefox` },  // directory check
+  ];
+
+  for (const { name, path } of browserCookiePaths) {
     try {
-      // Quick probe: ask yt-dlp to list formats using that browser's cookies.
-      // If it doesn't throw, the browser cookie DB is accessible.
-      await execFileAsync('yt-dlp', [
-        `--cookies-from-browser`, browser,
-        '--skip-download', '--quiet',
-        'https://www.instagram.com/',
-      ], { timeout: 8_000 });
-      console.log(`[insta] Using ${browser} browser cookies`);
-      return ['--cookies-from-browser', browser];
-    } catch { /* browser not found or locked */ }
+      await access(path);
+      console.log(`[insta] Using ${name} browser cookies`);
+      return ['--cookies-from-browser', name];
+    } catch { /* not found */ }
   }
 
-  console.warn('[insta] No cookies found — running anonymous (may rate-limit)');
+  console.warn('[insta] No browser cookies found — running anonymous (may rate-limit)');
   return [];
 }
 
