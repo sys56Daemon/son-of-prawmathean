@@ -5,8 +5,9 @@ import { addStickerMetadata } from '../utils/metadata.js';
 
 const logger = pino({ level: 'silent' });
 
-// Matches: .sticker, sticker, .sticker Pack, .sticker Pack Author
-const COMMAND_REGEX = /^\.?sticker(?:\s+(\S+))?(?:\s+(\S+))?$/i;
+// Matches: .sticker  |  sticker  |  .sticker Pack  |  .sticker Pack Some Author Name
+// First word after command = pack name (no spaces), rest = author name (spaces allowed)
+const COMMAND_REGEX = /^\.?sticker(?:\s+(\S+)(?:\s+(.+))?)?$/i;
 const DEFAULT_PACK = 'yo mama so fat';
 const DEFAULT_AUTHOR = 'prawmathean';
 
@@ -36,9 +37,9 @@ export async function handleStickerCommand(sock, msg) {
 
     const quotedMsg = {
       key: {
-        remoteJid: jid,
-        id: contextInfo.stanzaId,
-        fromMe: false,
+        remoteJid:   jid,
+        id:          contextInfo.stanzaId,
+        fromMe:      contextInfo.participant === sock.user?.id,  // Bug 2 fix — was hardcoded false
         participant: contextInfo.participant,
       },
       message: contextInfo.quotedMessage,
@@ -56,6 +57,20 @@ export async function handleStickerCommand(sock, msg) {
       return;
     }
 
+    // Bug 5 fix — guard against oversized files before downloading
+    const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB
+    const fileLength = Number(
+      quotedMsg.message?.imageMessage?.fileLength ??
+      quotedMsg.message?.videoMessage?.fileLength ??
+      0
+    );
+    if (fileLength > MAX_FILE_BYTES) {
+      await sock.sendMessage(jid, {
+        text: `❌ File is too large (${(fileLength / 1024 / 1024).toFixed(1)} MB). Max size is *15 MB*.`,
+      }, { quoted: msg });
+      return;
+    }
+
     // Show processing reaction
     await sock.sendMessage(jid, { react: { text: '⏳', key: msg.key } });
 
@@ -63,6 +78,7 @@ export async function handleStickerCommand(sock, msg) {
     console.log('[sticker] downloading media, type:', msgType);
     const mediaBuffer = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger });
     console.log('[sticker] downloaded bytes:', mediaBuffer?.length ?? 0);
+
 
     // Convert to WebP
     const webpBuffer = isGif

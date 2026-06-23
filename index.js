@@ -33,6 +33,9 @@ import { handlePing, handleAlive, handleInfo, handleHelp, handleToImg, handlePub
 import { handleTagAll, handleKick, handlePromote, handleDemote } from './handlers/group.js';
 import { handleCertificate } from './handlers/certificate.js';
 import { handleQR } from './handlers/qr.js';
+import { handleCalc, handleFlip, handleRoll, handleRemind, handle8Ball, handleChoose } from './handlers/fun.js';
+import { handleWeather, handleTranslate, handleDefine, handleGInfo, handleTTS } from './handlers/utility.js';
+import { handleInsta } from './handlers/instagram.js';
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +51,7 @@ async function handleMessage(sock, msg) {
   if (!text) return;
 
   const prefixRe  = new RegExp(`^\\${config.prefix}`, 'i');
-  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr'];
+  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta'];
   const isBareCmd = BARE_CMDS.some(cmd => new RegExp(`^${cmd}(\\s|$)`, 'i').test(text));
 
   if (!prefixRe.test(text) && !isBareCmd) return;
@@ -93,6 +96,22 @@ async function handleMessage(sock, msg) {
       case 'kick':        await handleKick(sock, msg);                break;
       case 'promote':     await handlePromote(sock, msg);             break;
       case 'demote':      await handleDemote(sock, msg);              break;
+      // ── Fun ────────────────────────────────────────────────────────────────
+      case 'calc':        await handleCalc(sock, msg, args);          break;
+      case 'flip':        await handleFlip(sock, msg);                break;
+      case 'roll':        await handleRoll(sock, msg, args);          break;
+      case 'remind':      await handleRemind(sock, msg, args);        break;
+      case '8ball':       await handle8Ball(sock, msg, args);         break;
+      case 'choose':      await handleChoose(sock, msg, args);        break;
+      // ── Utility ────────────────────────────────────────────────────────────
+      case 'weather':     await handleWeather(sock, msg, args);       break;
+      case 'translate':
+      case 'tr':          await handleTranslate(sock, msg, args);     break;
+      case 'define':      await handleDefine(sock, msg, args);        break;
+      case 'tts':         await handleTTS(sock, msg, args);           break;
+      case 'ginfo':       await handleGInfo(sock, msg);               break;
+      // ── Social Media ───────────────────────────────────────────────────────
+      case 'insta':       await handleInsta(sock, msg, args);         break;
       default: break;
     }
   } catch (err) {

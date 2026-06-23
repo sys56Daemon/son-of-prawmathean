@@ -26,12 +26,15 @@ function memMB() {
 export async function handlePing(sock, msg) {
   const jid   = msg.key.remoteJid;
   const start = Date.now();
-  await sock.sendMessage(jid, { text: '🏓 Pong!' }, { quoted: msg });
+  // await sock.sendMessage(jid, { text: '🏓 Pong!' }, { quoted: msg });
   const latency = Date.now() - start;
   const uptime  = formatUptime(Date.now() - BOT_START_TIME);
+  await sock.sendMessage(jid, { react: { text: '🗿', key: msg.key } });
   await sock.sendMessage(jid, {
     text: `🏓 *Pong!*\n\n⚡ *Latency:* ${latency}ms\n⏱️ *Uptime:* ${uptime}`,
   }, { quoted: msg });
+
+
 }
 
 /** .alive — simple status check */
@@ -51,14 +54,15 @@ export async function handleInfo(sock, msg) {
   const nodeVer = process.version;
   await sock.sendMessage(jid, {
     text: [
-      `ℹ️ *${config.botName} — Info*`,
+      `*${config.botName} — Info*`,
       ``,
       `🤖 *Version:* ${config.version}`,
       `⏱️ *Uptime:* ${uptime}`,
       `💾 *Memory:* ${mem} MB`,
       `🟢 *Status:* Online`,
-      `⚙️ *Node.js:* ${nodeVer}`,
+      // `⚙️ *Node.js:* ${nodeVer}`,
       `🔒 *Mode:* ${config.private ? 'Private' : 'Public'}`,
+      `👾 *Creator:* Prajwal Praveen`
     ].join('\n'),
   }, { quoted: msg });
 }
@@ -76,7 +80,7 @@ export async function handleHelp(sock, msg) {
       `› \`${p}toimg\` — Sticker → image`,
       ``,
       `*🎨 Generators*`,
-      `› \`certificate <name> <role>\` — Generate a (goofy) certificate`,
+      `› \`certificate <name> <role>\` — Generate a mock certificate`,
       `› \`qr <text>\` — Generate a scannable QR code`,
       ``,
       `*📋 General*`,
@@ -90,6 +94,21 @@ export async function handleHelp(sock, msg) {
       `› \`${p}kick @user\` — Kick a member`,
       `› \`${p}promote @user\` — Make admin`,
       `› \`${p}demote @user\` — Remove admin`,
+      `› \`${p}ginfo\` — Show group details`,
+      ``,
+      `*🎮 Fun*`,
+      `› \`${p}calc <expr>\` — Calculator (e.g. \`(5+3)*2\`)`,
+      `› \`${p}flip\` — Flip a coin`,
+      `› \`${p}roll [NdM]\` — Roll dice (e.g. \`2d20\`, \`d100\`)`,
+      `› \`${p}remind <time> <msg>\` — Set a reminder (e.g. \`10m\`, \`1h30m\`)`,
+      `› \`${p}8ball <question>\` — Ask the Magic 8-Ball`,
+      `› \`${p}choose opt1 | opt2 | ...\` — Pick a random option`,
+      ``,
+      `*🌐 Utility*`,
+      `› \`${p}weather [city]\` — Current weather`,
+      `› \`${p}translate <lang> <text>\` — Translate text (alias: \`${p}tr\`)`,
+      `› \`${p}define <word>\` — Dictionary definition`,
+      `› \`${p}tts <text>\` — Text to voice note`,
       ``,
       `*👑 Owner*`,
       `› \`${p}mode\` — Toggle Private/Public`,
@@ -103,12 +122,20 @@ export async function handleHelp(sock, msg) {
 
 /** .toimg — convert a quoted sticker back to PNG */
 export async function handleToImg(sock, msg) {
-  const { default: Jimp }                = await import('jimp');
-  const { downloadMediaMessage }         = await import('@whiskeysockets/baileys');
+  const { downloadMediaMessage,
+          getContentType }               = await import('@whiskeysockets/baileys');
   const { default: pino }                = await import('pino');
-  const logger                           = pino({ level: 'silent' });
-  const jid                              = msg.key.remoteJid;
-  const contextInfo                      = msg.message?.extendedTextMessage?.contextInfo;
+  const { execFile }                     = await import('child_process');
+  const { promisify }                    = await import('util');
+  const { writeFile, readFile, unlink }  = await import('fs/promises');
+  const { tmpdir }                       = await import('os');
+  const { join }                         = await import('path');
+  const { randomUUID }                   = await import('crypto');
+
+  const execFileAsync = promisify(execFile);
+  const logger        = pino({ level: 'silent' });
+  const jid           = msg.key.remoteJid;
+  const contextInfo   = msg.message?.extendedTextMessage?.contextInfo;
 
   if (!contextInfo?.quotedMessage) {
     await sock.sendMessage(jid, { text: '❌ Reply to a *sticker* with `.toimg`.' }, { quoted: msg });
@@ -119,13 +146,12 @@ export async function handleToImg(sock, msg) {
     key: {
       remoteJid:   jid,
       id:          contextInfo.stanzaId,
-      fromMe:      false,
+      fromMe:      contextInfo.participant === sock.user?.id,  // Bug 2 fix — was hardcoded false
       participant: contextInfo.participant,
     },
     message: contextInfo.quotedMessage,
   };
 
-  const { getContentType } = await import('@whiskeysockets/baileys');
   if (getContentType(quotedMsg.message) !== 'stickerMessage') {
     await sock.sendMessage(jid, { text: '❌ That\'s not a sticker.' }, { quoted: msg });
     return;
@@ -133,18 +159,31 @@ export async function handleToImg(sock, msg) {
 
   await sock.sendMessage(jid, { react: { text: '⏳', key: msg.key } });
 
-  const webpBuf = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger });
-  // Use jimp (pure JS) — works on Termux/android-arm64 without native binaries
-  const image   = await Jimp.read(webpBuf);
-  const pngBuf  = await image.getBufferAsync(Jimp.MIME_PNG);
+  const id         = randomUUID();
+  const inputPath  = join(tmpdir(), `wabot_sticker_${id}.webp`);
+  const outputPath = join(tmpdir(), `wabot_sticker_${id}.png`);
 
-  await sock.sendMessage(jid, {
-    image:   pngBuf,
-    caption: '🖼️ Here\'s your image!',
-  }, { quoted: msg });
+  try {
+    const webpBuf = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger });
 
-  await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });
+    // Jimp v1 cannot decode WebP — use ffmpeg (already a dependency for stickers)
+    await writeFile(inputPath, webpBuf);
+    await execFileAsync('ffmpeg', ['-y', '-i', inputPath, outputPath]);
+    const pngBuf = await readFile(outputPath);
+
+    await sock.sendMessage(jid, {
+      image:   pngBuf,
+      caption: '🖼️ Here\'s your image!',
+    }, { quoted: msg });
+
+    await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });
+  } finally {
+    await unlink(inputPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
 }
+
+
 
 /** .public — makes the bot usable by anyone (Owner only) */
 export async function handlePublic(sock, msg) {

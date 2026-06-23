@@ -11,6 +11,7 @@
     "@hapi/boom": "^10.0.1",
     "@napi-rs/canvas": "^1.0.0",
     "@whiskeysockets/baileys": "^6.7.9",
+    "instagram-url-direct": "^2.0.7",
     "jimp": "^1.6.0",
     "pino": "^9.3.2",
     "pureimage": "^0.4.18",
