@@ -125,6 +125,39 @@ npm install
 
 ---
 
+### Docker (Recommended for Linux/Windows/Cloud)
+
+You can run the bot seamlessly on any machine using Docker. This avoids needing to install `node` or `ffmpeg` directly on your host system.
+
+#### 1. Build the Docker image
+```bash
+docker build -t praw56/wabot:latest .
+```
+
+#### 2. Push to Docker Hub (optional)
+```bash
+docker push praw56/wabot:latest
+```
+
+#### 3. Run the container
+Run the following command on the target machine. This mounts the `auth_info` folder so your WhatsApp session persists between restarts.
+
+```bash
+docker run -d \
+  --name my-wabot \
+  -v $(pwd)/auth_info:/app/auth_info \
+  --restart unless-stopped \
+  praw56/wabot:latest
+```
+
+#### 4. View logs to scan the QR Code
+```bash
+docker logs -f my-wabot
+```
+Scan the QR code printed in the console. Press `Ctrl+C` to exit the logs view.
+
+---
+
 ## 📸 Instagram Downloader
 
 Send any public Instagram post, reel, or IGTV video to the bot and it will download and forward the media directly in the chat.
