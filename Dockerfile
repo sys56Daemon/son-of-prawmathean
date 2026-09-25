@@ -1,4 +1,4 @@
-FROM node:18-bookworm-slim
+FROM node:20-bookworm-slim
 
 # Install system dependencies, notably ffmpeg for sticker processing
 # @napi-rs/canvas may require some standard C++ libraries which are usually present in bullseye-slim,
