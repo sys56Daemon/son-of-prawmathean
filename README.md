@@ -66,42 +66,11 @@ A feature-rich private WhatsApp bot. Runs on Termux (Android) or any Linux machi
 
 ### Termux (Android)
 
-#### 1. Install system dependencies
-```bash
-pkg update && pkg upgrade
-pkg install nodejs ffmpeg yt-dlp
-```
+Because Android's native environment lacks certain standard Linux libraries (`glibc`), you may encounter the "sticker bug" or build failures. 
 
-#### 2. Install Node dependencies
-```bash
-cd ~/waBot
-npm install
-```
+To fix this, you should run the bot inside an isolated Ubuntu environment on Termux. 
 
-#### 3. Configure the bot — **do this before starting!**
-
-Edit `config.js`:
-```js
-ownerNumber: '919876543210',      // ← Your number (country code + number, no + or spaces)
-private: true,                     // ← true = private mode ON
-allowedNumbers: ['919876543210'],  // ← Numbers allowed to use the bot
-```
-
-> **How to find your number format**: If your WhatsApp number is +91 98765 43210,
-> write it as `'919876543210'` (country code `91` + 10-digit number, no `+` or spaces).
-
-#### 4. Start the bot
-```bash
-node index.js
-```
-Scan the QR code with WhatsApp → Linked Devices → Link a Device.
-
-#### 5. Keep it running (optional)
-```bash
-npm install -g pm2
-pm2 start index.js --name wabot
-pm2 save
-```
+👉 **[Click here for the full Termux / Android Setup Guide](TERMUX_SETUP.md)**
 
 ---
 
