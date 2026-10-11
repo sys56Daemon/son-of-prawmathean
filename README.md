@@ -18,7 +18,7 @@ A feature-rich private WhatsApp bot. Runs on Termux (Android) or any Linux machi
 ### 🎨 Media
 | Command | Prefix needed? | Description |
 |---|---|---|
-| `.sticker [pack] [author]` | Optional | Convert image/GIF → sticker |
+| `.sticker [author] [pack]` | Optional | Convert image/GIF → sticker |
 | `.toimg` | Yes | Convert sticker → image |
 | `certificate <name> <role>` | Optional | Generate a goofy certificate |
 | `qr <text>` | Optional | Generate a QR code image |
@@ -47,6 +47,7 @@ A feature-rich private WhatsApp bot. Runs on Termux (Android) or any Linux machi
 | `.choose <a\|b\|c>` | Yes | Pick a random option |
 | `.remind <n> <s\|m\|h> <msg>` | Yes | Set a reminder |
 | `.calc <expression>` | Yes | Calculate a math expression |
+| `.pet` / `.petpet` | Optional | Reply to image or sticker → animated patting sticker |
 
 ### 🌐 Utility
 | Command | Prefix needed? | Description |

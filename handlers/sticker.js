@@ -22,8 +22,8 @@ export async function handleStickerCommand(sock, msg) {
     const match = text.trim().match(COMMAND_REGEX);
     if (!match) return;
 
-    const packName   = match[1] || DEFAULT_PACK;
-    const authorName = match[2] || DEFAULT_AUTHOR;
+    const authorName = match[1] || DEFAULT_AUTHOR;
+    const packName   = match[2] || DEFAULT_PACK;
     const jid        = msg.key.remoteJid;
 
     // Must be a reply

@@ -36,6 +36,7 @@ import { handleQR } from './handlers/qr.js';
 import { handleCalc, handleFlip, handleRoll, handleRemind, handle8Ball, handleChoose } from './handlers/fun.js';
 import { handleWeather, handleTranslate, handleDefine, handleGInfo, handleTTS } from './handlers/utility.js';
 import { handleInsta } from './handlers/instagram.js';
+import { handlePetpet } from './handlers/petpet.js';
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ async function handleMessage(sock, msg) {
   if (!text) return;
 
   const prefixRe  = new RegExp(`^\\${config.prefix}`, 'i');
-  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta'];
+  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet'];
   const isBareCmd = BARE_CMDS.some(cmd => new RegExp(`^${cmd}(\\s|$)`, 'i').test(text));
 
   if (!prefixRe.test(text) && !isBareCmd) return;
@@ -112,6 +113,9 @@ async function handleMessage(sock, msg) {
       case 'ginfo':       await handleGInfo(sock, msg);               break;
       // ── Social Media ───────────────────────────────────────────────────────
       case 'insta':       await handleInsta(sock, msg, args);         break;
+      // ── Fun: Petpet ────────────────────────────────────────────────────────
+      case 'pet':
+      case 'petpet':      await handlePetpet(sock, msg);              break;
       default: break;
     }
   } catch (err) {
