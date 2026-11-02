@@ -59,7 +59,19 @@ async function handleMessage(sock, msg) {
   // Natural conversational triggers for Groq AI: "hey p" or "yo" (case insensitive)
   const groqNaturalMatch = text.match(/^(?:hey\s+p|yo)(?:[\s,!?]+|$)(.*)/is);
 
-  if (!prefixRe.test(text) && !isBareCmd && !groqNaturalMatch) return;
+  // Check if this message is a reply to a message sent by the bot
+  const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+  const quotedParticipant = contextInfo?.participant || '';
+  const botUserJid = sock.user?.id || '';
+  const botUserLid = sock.user?.lid || '';
+  const isReplyToBot = Boolean(
+    contextInfo?.quotedMessage && (
+      (botUserJid && getNumber(quotedParticipant) === getNumber(botUserJid)) ||
+      (botUserLid && getNumber(quotedParticipant) === getNumber(botUserLid))
+    )
+  );
+
+  if (!prefixRe.test(text) && !isBareCmd && !groqNaturalMatch && !isReplyToBot) return;
 
   // Resolve sender JID
   const jid    = msg.key.remoteJid;
@@ -83,6 +95,17 @@ async function handleMessage(sock, msg) {
     const prompt = groqNaturalMatch[1]?.trim() || '';
     try {
       await handleGroq(sock, msg, prompt);
+    } catch (err) {
+      console.error('[router] Error in groq AI:', err.message);
+      await sock.sendMessage(jid, { text: `❌ Error: ${err.message}` }, { quoted: msg });
+    }
+    return;
+  }
+
+  // If user replied to a message sent by the bot (and didn't issue an explicit command)
+  if (isReplyToBot && !prefixRe.test(text) && !isBareCmd) {
+    try {
+      await handleGroq(sock, msg, text);
     } catch (err) {
       console.error('[router] Error in groq AI:', err.message);
       await sock.sendMessage(jid, { text: `❌ Error: ${err.message}` }, { quoted: msg });
