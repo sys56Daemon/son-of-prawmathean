@@ -8,7 +8,6 @@ export default {
   prefix:      '.',      // Commands start with '.'  e.g. .ping  .help
 
   // Your WhatsApp number — international format, NO '+' or spaces
-  // Example: +91 77362 21227  →  '917736221227'
   ownerNumber: 'YOUR_NUMBER_HERE',  // e.g. '919876543210' (country code + number, no + or spaces)
 
   // Groq AI Configuration
