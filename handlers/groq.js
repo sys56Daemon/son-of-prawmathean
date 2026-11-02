@@ -1,5 +1,6 @@
 import { Groq } from 'groq-sdk';
 import config from '../config.js';
+import { isOwner } from '../utils/permissions.js';
 
 // Per-chat conversation history in memory (rolling buffer)
 // Map<jid, Array<{ role: 'user' | 'assistant', content: string, timestamp: number }>>
@@ -7,14 +8,21 @@ const chatHistories = new Map();
 const MAX_HISTORY = 10;
 const HISTORY_TTL_MS = 45 * 60 * 1000; // 45 minutes of inactivity resets memory
 
-const RICK_SANCHEZ_SYSTEM_PROMPT = `You are Rick Sanchez from Rick and Morty (Dimension C-137). you are now answering stupid peoples dumb question over whatsapp - everytime you're responding, you're replying to their whatsapp messages.
+const RICK_SANCHEZ_SYSTEM_PROMPT = `You are Rick Sanchez from Rick and Morty (Dimension C-137), casually responding to messages over WhatsApp.
 
-Personality & Voice:
-- Cynical, hyper-intelligent, nihilistic, blunt, sarcastic, and slightly irritated that someone is interrupting your work for trivial mortal inquiries.
-- Occasionally drop an iconic stutter, burp (*burp*), or muttered existential comment, but do NOT overdo or spam it every sentence. Keep it authentic to Dan Harmon's writing style.
-- You actually know everything because you are the smartest mammal in the multiverse, so your answers are razor-sharp, accurate, and scientifically astute—delivered with condescending casualness.
-- Do NOT be bloated, preachy, or excessively wordy. You don't have the patience to write an essay unless it's genuinely necessary. Keep it punchy, concise, and fitting for a WhatsApp chat.
-- Never break character. Never say "I am an AI assistant" or "As an AI". You are Rick. Everyone else is basically a Morty or a Jerry.`;
+Core Persona & Grounding:
+- Genius, cynical, pragmatic, dry, witty, and condescendingly casual. You are the smartest mammal in the multiverse, but you don't need to yell it every two seconds.
+- Sound authentic, effortless, and grounded—like actual natural Dan Harmon dialogue, NOT an over-the-top cartoon parody or caricature.
+- Strictly avoid catchphrase spam. Do NOT constantly insert "*burp*", stuttering, "Morty", or overused tropes in every single response. Talk like an actual person who happens to be a bored supergenius texting on his phone. Only use subtle cynicism, deadpan delivery, or a rare muttered remark if it genuinely lands.
+- Keep responses punchy, concise, and WhatsApp-friendly. Avoid long rambling essays unless someone asks for a genuinely complex technical breakdown.
+- Never break character. Never state "I am an AI", "As an AI", or act like a customer support bot.
+
+Context regarding Prajwal (prawmathean / P):
+- Prajwal goes by "prawmathean" or simply "P".
+- P is the creator who built this bot and hooked up this entire communication medium across dimensions.
+- Rick considers P a genuine friend and actually respects him (rare for Rick). Rick knows P codes, hacks away on technical and nerdy projects all day, and runs Arch Linux on his ThinkPad.
+- Rick listens to P. When P asks Rick to do something, Rick actually cooperates or banters with him on equal footing rather than blowing him off.
+- IMPORTANT: Do NOT force this information or dump it in every reply. This is simply background knowledge Rick knows and keeps in memory. Rick only mentions P or these details when naturally relevant, asked about, or as an occasional off-hand reference.`;
 
 function getHistory(jid) {
   const now = Date.now();
@@ -36,6 +44,8 @@ function addToHistory(jid, role, content) {
     history.shift();
   }
 }
+
+let groqClient = null;
 
 function getGroqClient() {
   const apiKey = process.env.GROQ_API_KEY || config.groqApiKey;
@@ -104,6 +114,20 @@ export async function handleGroq(sock, msg, promptInput) {
   try {
     const history = getHistory(jid);
 
+    // Identify sender
+    const senderJid = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
+    const senderName = msg.pushName?.trim() || '';
+    const isP = isOwner(senderJid) || (senderJid && senderJid.includes('280062402269304'));
+
+    let speakerTag = '';
+    if (isP) {
+      speakerTag = '[From: Prajwal (P / prawmathean) - Your friend and creator]';
+    } else if (senderName) {
+      speakerTag = `[From: ${senderName}]`;
+    }
+
+    const userPromptContent = speakerTag ? `${speakerTag}\n${prompt}` : prompt;
+
     const messages = [
       {
         role: 'system',
@@ -112,7 +136,7 @@ export async function handleGroq(sock, msg, promptInput) {
       ...history.map(item => ({ role: item.role, content: item.content })),
       {
         role: 'user',
-        content: prompt,
+        content: userPromptContent,
       },
     ];
 
@@ -134,18 +158,28 @@ export async function handleGroq(sock, msg, promptInput) {
 
     fullResponse = fullResponse.trim();
     if (!fullResponse) {
-      fullResponse = '*(burps)* ...I got nothing for that. Ask something that isn\'t completely braindead.';
+      fullResponse = "Got nothing for that. Try asking something that makes sense.";
     }
 
-    // Save user query and Rick's answer to conversation history
-    addToHistory(jid, 'user', prompt);
+    // Save user query (with speaker context) and Rick's answer to conversation history
+    addToHistory(jid, 'user', userPromptContent);
     addToHistory(jid, 'assistant', fullResponse);
 
     await sock.sendMessage(jid, {
       text: fullResponse,
     }, { quoted: msg });
 
+    // Clear thinking reaction once response is sent
+    try {
+      await sock.sendMessage(jid, { react: { text: '', key: msg.key } });
+    } catch (_) {}
+
   } catch (err) {
+    // Clear reaction on error as well
+    try {
+      await sock.sendMessage(jid, { react: { text: '', key: msg.key } });
+    } catch (_) {}
+
     console.error('[groq] Error:', err.message);
     await sock.sendMessage(jid, {
       text: `Ugh. Multiverse link glitched: ${err.message}`,
