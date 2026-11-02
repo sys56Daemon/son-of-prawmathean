@@ -37,6 +37,7 @@ import { handleCalc, handleFlip, handleRoll, handleRemind, handle8Ball, handleCh
 import { handleWeather, handleTranslate, handleLanguages, handleDefine, handleGInfo, handleTTS } from './handlers/utility.js';
 import { handleInsta } from './handlers/instagram.js';
 import { handlePetpet } from './handlers/petpet.js';
+import { handleGroq } from './handlers/groq.js';
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
@@ -52,10 +53,13 @@ async function handleMessage(sock, msg) {
   if (!text) return;
 
   const prefixRe  = new RegExp(`^\\${config.prefix}`, 'i');
-  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet'];
+  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq'];
   const isBareCmd = BARE_CMDS.some(cmd => new RegExp(`^${cmd}(\\s|$)`, 'i').test(text));
 
-  if (!prefixRe.test(text) && !isBareCmd) return;
+  // Natural conversational triggers for Groq AI: "hey p" or "yo" (case insensitive)
+  const groqNaturalMatch = text.match(/^(?:hey\s+p|yo)(?:[\s,!?]+|$)(.*)/is);
+
+  if (!prefixRe.test(text) && !isBareCmd && !groqNaturalMatch) return;
 
   // Resolve sender JID
   const jid    = msg.key.remoteJid;
@@ -71,6 +75,18 @@ async function handleMessage(sock, msg) {
 
   if (!senderLidMatchesOwner && !isAllowed(sender)) {
     console.log(`[debug] Ignored: sender ${sender} not authorized.`);
+    return;
+  }
+
+  // If triggered via natural phrase "hey p ..." or "yo ..."
+  if (groqNaturalMatch) {
+    const prompt = groqNaturalMatch[1]?.trim() || '';
+    try {
+      await handleGroq(sock, msg, prompt);
+    } catch (err) {
+      console.error('[router] Error in groq AI:', err.message);
+      await sock.sendMessage(jid, { text: `❌ Error: ${err.message}` }, { quoted: msg });
+    }
     return;
   }
 
@@ -115,6 +131,9 @@ async function handleMessage(sock, msg) {
       case 'ginfo':       await handleGInfo(sock, msg);               break;
       // ── Social Media ───────────────────────────────────────────────────────
       case 'insta':       await handleInsta(sock, msg, args);         break;
+      // ── AI ─────────────────────────────────────────────────────────────────
+      case 'ai':
+      case 'groq':        await handleGroq(sock, msg, args);          break;
       // ── Fun: Petpet ────────────────────────────────────────────────────────
       case 'pet':
       case 'petpet':      await handlePetpet(sock, msg);              break;

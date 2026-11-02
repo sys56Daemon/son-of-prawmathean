@@ -11,6 +11,12 @@ export default {
   // Example: +91 77362 21227  →  '917736221227'
   ownerNumber: 'YOUR_NUMBER_HERE',  // e.g. '919876543210' (country code + number, no + or spaces)
 
+  // Groq AI Configuration
+  // Get an API key from https://console.groq.com/keys
+  // You can also export GROQ_API_KEY in your environment
+  groqApiKey: process.env.GROQ_API_KEY || 'YOUR_GROQ_API_KEY',
+  groqModel:  'llama-3.3-70b-versatile', // or 'qwen/qwen3.8-27b' / 'llama-3.1-8b-instant'
+
   // PRIVATE MODE
   // true  → Only numbers in allowedNumbers (+ ownerNumber) can use the bot
   // false → Anyone can use the bot
