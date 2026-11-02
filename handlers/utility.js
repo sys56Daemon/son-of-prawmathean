@@ -221,29 +221,62 @@ export async function handleTranslate(sock, msg, args) {
     return;
   }
 
+  // 1. Try Google Translate first
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(textToTranslate)}`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+      },
+    });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (res.ok) {
+      const data = await res.json();
+      const translated = data[0]?.map(chunk => chunk[0]).join('') ?? '';
+      const detectedLang = data[2] ?? 'auto';
 
-    const data = await res.json();
-    const translated = data[0]?.map(chunk => chunk[0]).join('') ?? '';
-    const detectedLang = data[2] ?? '?';
+      if (translated) {
+        const fromName = SUPPORTED_LANGUAGES[detectedLang.toLowerCase()] || detectedLang;
+        const toName = SUPPORTED_LANGUAGES[targetLang.toLowerCase()] || targetLang;
 
-    if (!translated) throw new Error('Empty translation response');
+        await sock.sendMessage(jid, {
+          text: `🌐 *Translation* (${fromName} → ${toName})\n\n${translated}`,
+        }, { quoted: msg });
+        return;
+      }
+    }
+    console.warn(`[translate] Google returned HTTP ${res.status}, attempting fallback...`);
+  } catch (gErr) {
+    console.warn('[translate] Google primary failed:', gErr.message, '— trying fallback...');
+  }
 
-    const fromName = SUPPORTED_LANGUAGES[detectedLang.toLowerCase()] || detectedLang;
+  // 2. Fallback: MyMemory Translation API (Free, reliable backup)
+  try {
+    const fallbackUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToTranslate)}&langpair=autodetect|${encodeURIComponent(targetLang)}`;
+    const fbRes = await fetch(fallbackUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+
+    if (!fbRes.ok) throw new Error(`HTTP ${fbRes.status}`);
+
+    const fbData = await fbRes.json();
+    const translated = fbData.responseData?.translatedText;
+
+    if (!translated || fbData.responseStatus !== 200) {
+      throw new Error(fbData.responseDetails || 'Empty translation');
+    }
+
     const toName = SUPPORTED_LANGUAGES[targetLang.toLowerCase()] || targetLang;
 
     await sock.sendMessage(jid, {
-      text: `🌐 *Translation* (${fromName} → ${toName})\n\n${translated}`,
+      text: `🌐 *Translation* (→ ${toName})\n\n${translated}`,
     }, { quoted: msg });
 
   } catch (err) {
-    console.error('[translate] Error:', err.message);
+    console.error('[translate] All providers failed:', err.message);
     await sock.sendMessage(jid, {
-      text: `❌ Translation failed. Check the language code (type \`.langs\` to view all) and try again.`,
+      text: `❌ Translation failed: ${err.message}\nCheck the language code (type \`.langs\` to view all) and try again.`,
     }, { quoted: msg });
   }
 }
