@@ -43,17 +43,154 @@ export async function handleWeather(sock, msg, args) {
 
 // ─── .translate ───────────────────────────────────────────────────────────────
 
+export const SUPPORTED_LANGUAGES = {
+  af: 'Afrikaans',
+  sq: 'Albanian',
+  am: 'Amharic',
+  ar: 'Arabic',
+  hy: 'Armenian',
+  az: 'Azerbaijani',
+  eu: 'Basque',
+  be: 'Belarusian',
+  bn: 'Bengali',
+  bs: 'Bosnian',
+  bg: 'Bulgarian',
+  ca: 'Catalan',
+  ceb: 'Cebuano',
+  zh: 'Chinese (Simplified)',
+  'zh-cn': 'Chinese (Simplified)',
+  'zh-tw': 'Chinese (Traditional)',
+  co: 'Corsican',
+  hr: 'Croatian',
+  cs: 'Czech',
+  da: 'Danish',
+  nl: 'Dutch',
+  en: 'English',
+  eo: 'Esperanto',
+  et: 'Estonian',
+  fi: 'Finnish',
+  fr: 'French',
+  fy: 'Frisian',
+  gl: 'Galician',
+  ka: 'Georgian',
+  de: 'German',
+  el: 'Greek',
+  gu: 'Gujarati',
+  ht: 'Haitian Creole',
+  ha: 'Hausa',
+  haw: 'Hawaiian',
+  he: 'Hebrew',
+  hi: 'Hindi',
+  hmn: 'Hmong',
+  hu: 'Hungarian',
+  is: 'Icelandic',
+  ig: 'Igbo',
+  id: 'Indonesian',
+  ga: 'Irish',
+  it: 'Italian',
+  ja: 'Japanese',
+  jv: 'Javanese',
+  kn: 'Kannada',
+  kk: 'Kazakh',
+  km: 'Khmer',
+  rw: 'Kinyarwanda',
+  ko: 'Korean',
+  ku: 'Kurdish',
+  ky: 'Kyrgyz',
+  lo: 'Lao',
+  la: 'Latin',
+  lv: 'Latvian',
+  lt: 'Lithuanian',
+  lb: 'Luxembourgish',
+  mk: 'Macedonian',
+  mg: 'Malagasy',
+  ms: 'Malay',
+  ml: 'Malayalam',
+  mt: 'Maltese',
+  mi: 'Maori',
+  mr: 'Marathi',
+  mn: 'Mongolian',
+  my: 'Myanmar (Burmese)',
+  ne: 'Nepali',
+  no: 'Norwegian',
+  ny: 'Nyanja (Chichewa)',
+  or: 'Odia (Oriya)',
+  ps: 'Pashto',
+  fa: 'Persian',
+  pl: 'Polish',
+  pt: 'Portuguese',
+  pa: 'Punjabi',
+  ro: 'Romanian',
+  ru: 'Russian',
+  sm: 'Samoan',
+  gd: 'Scots Gaelic',
+  sr: 'Serbian',
+  st: 'Sesotho',
+  sn: 'Shona',
+  sd: 'Sindhi',
+  si: 'Sinhala',
+  sk: 'Slovak',
+  sl: 'Slovenian',
+  so: 'Somali',
+  es: 'Spanish',
+  su: 'Sundanese',
+  sw: 'Swahili',
+  sv: 'Swedish',
+  tl: 'Tagalog (Filipino)',
+  tg: 'Tajik',
+  ta: 'Tamil',
+  tt: 'Tatar',
+  te: 'Telugu',
+  th: 'Thai',
+  tr: 'Turkish',
+  tk: 'Turkmen',
+  uk: 'Ukrainian',
+  ur: 'Urdu',
+  ug: 'Uyghur',
+  uz: 'Uzbek',
+  vi: 'Vietnamese',
+  cy: 'Welsh',
+  xh: 'Xhosa',
+  yi: 'Yiddish',
+  yo: 'Yoruba',
+  zu: 'Zulu',
+};
+
 /**
- * .translate <lang> <text>   — or reply to a message
- * Uses Google Translate (unofficial endpoint, no API key)
+ * .languages / .langs — list supported language codes
+ */
+export async function handleLanguages(sock, msg) {
+  const jid = msg.key.remoteJid;
+  const entries = Object.entries(SUPPORTED_LANGUAGES);
+  
+  const formatted = entries
+    .map(([code, name]) => `• \`${code.padEnd(5)}\` : ${name}`)
+    .join('\n');
+
+  await sock.sendMessage(jid, {
+    text: `🌐 *Supported Language Codes* (${entries.length})\n\n${formatted}\n\n_Usage:_ \`.tr <lang> <text>\` or reply with \`.tr <lang>\``,
+  }, { quoted: msg });
+}
+
+/**
+ * .translate <lang> <text>   — or reply to a message: .translate <lang>
+ * Uses Google Translate (free endpoint)
  * Example: .translate es Hello how are you?
  */
 export async function handleTranslate(sock, msg, args) {
   const jid = msg.key.remoteJid;
+  const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+  const quoted = contextInfo?.quotedMessage;
 
-  if (args.length < 2) {
+  // If user requested list of languages directly: e.g. .tr list or .tr langs
+  if (args[0]?.toLowerCase() === 'list' || args[0]?.toLowerCase() === 'langs') {
+    return handleLanguages(sock, msg);
+  }
+
+  // Must have at least 1 arg (target language)
+  if (args.length < 1) {
     await sock.sendMessage(jid, {
-      text: '🌐 *Usage:*\n`.translate <lang> <text>`\nor reply to a message:\n`.translate <lang>`\n\n_Examples:_\n`.translate es Good morning`\n`.translate fr Hello everyone`\n\n_Common lang codes:_ `es` `fr` `de` `ja` `hi` `ar` `pt` `ru` `zh`',
+      text: '🌐 *Usage:*\n`.tr <lang> <text>`\nor reply to a message:\n`.tr <lang>`\n\n_List all language codes:_\n`.langs` or `.tr list`\n\n_Examples:_\n`.tr es Good morning`\n`.tr fr Hello everyone`\n\n_Common lang codes:_ `es` `fr` `de` `ja` `hi` `ar` `pt` `ru` `zh`',
     }, { quoted: msg });
     return;
   }
@@ -61,19 +198,25 @@ export async function handleTranslate(sock, msg, args) {
   const targetLang = args[0].toLowerCase();
 
   // Support replying to a message
-  let textToTranslate;
-  const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
-  if (args.length === 1 && contextInfo?.quotedMessage) {
+  let textToTranslate = '';
+  if (quoted) {
     textToTranslate =
-      contextInfo.quotedMessage?.conversation ||
-      contextInfo.quotedMessage?.extendedTextMessage?.text || '';
+      quoted.conversation ||
+      quoted.extendedTextMessage?.text ||
+      quoted.imageMessage?.caption ||
+      quoted.videoMessage?.caption ||
+      '';
+    // If extra args were provided after the lang code when replying, prefer args over quoted
+    if (args.length > 1) {
+      textToTranslate = args.slice(1).join(' ');
+    }
   } else {
     textToTranslate = args.slice(1).join(' ');
   }
 
   if (!textToTranslate.trim()) {
     await sock.sendMessage(jid, {
-      text: '❌ No text to translate. Provide text or reply to a message.',
+      text: '🌐 *Usage:*\n`.tr <lang> <text>`\nor reply to a message:\n`.tr <lang>`\n\n_List all language codes:_ `.langs`',
     }, { quoted: msg });
     return;
   }
@@ -90,14 +233,17 @@ export async function handleTranslate(sock, msg, args) {
 
     if (!translated) throw new Error('Empty translation response');
 
+    const fromName = SUPPORTED_LANGUAGES[detectedLang.toLowerCase()] || detectedLang;
+    const toName = SUPPORTED_LANGUAGES[targetLang.toLowerCase()] || targetLang;
+
     await sock.sendMessage(jid, {
-      text: `🌐 *Translation* (${detectedLang} → ${targetLang})\n\n${translated}`,
+      text: `🌐 *Translation* (${fromName} → ${toName})\n\n${translated}`,
     }, { quoted: msg });
 
   } catch (err) {
     console.error('[translate] Error:', err.message);
     await sock.sendMessage(jid, {
-      text: '❌ Translation failed. Check the language code and try again.',
+      text: `❌ Translation failed. Check the language code (type \`.langs\` to view all) and try again.`,
     }, { quoted: msg });
   }
 }

@@ -34,7 +34,7 @@ import { handleTagAll, handleKick, handlePromote, handleDemote } from './handler
 import { handleCertificate } from './handlers/certificate.js';
 import { handleQR } from './handlers/qr.js';
 import { handleCalc, handleFlip, handleRoll, handleRemind, handle8Ball, handleChoose } from './handlers/fun.js';
-import { handleWeather, handleTranslate, handleDefine, handleGInfo, handleTTS } from './handlers/utility.js';
+import { handleWeather, handleTranslate, handleLanguages, handleDefine, handleGInfo, handleTTS } from './handlers/utility.js';
 import { handleInsta } from './handlers/instagram.js';
 import { handlePetpet } from './handlers/petpet.js';
 
@@ -108,6 +108,8 @@ async function handleMessage(sock, msg) {
       case 'weather':     await handleWeather(sock, msg, args);       break;
       case 'translate':
       case 'tr':          await handleTranslate(sock, msg, args);     break;
+      case 'languages':
+      case 'langs':       await handleLanguages(sock, msg);           break;
       case 'define':      await handleDefine(sock, msg, args);        break;
       case 'tts':         await handleTTS(sock, msg, args);           break;
       case 'ginfo':       await handleGInfo(sock, msg);               break;

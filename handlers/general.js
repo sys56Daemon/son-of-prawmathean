@@ -107,6 +107,7 @@ export async function handleHelp(sock, msg) {
       `*🌐 Utility*`,
       `› \`${p}weather [city]\` — Current weather`,
       `› \`${p}translate <lang> <text>\` — Translate text (alias: \`${p}tr\`)`,
+      `› \`${p}langs\` — List supported language codes (alias: \`${p}languages\`)`,
       `› \`${p}define <word>\` — Dictionary definition`,
       `› \`${p}tts <text>\` — Text to voice note`,
       ``,
