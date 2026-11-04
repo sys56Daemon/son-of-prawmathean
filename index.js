@@ -29,7 +29,7 @@ import { isAllowed, getNumber, isUnconfigured } from './utils/permissions.js';
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 import { handleStickerCommand } from './handlers/sticker.js';
-import { handlePing, handleAlive, handleInfo, handleHelp, handleToImg, handlePublic, handlePrivate, handleMode } from './handlers/general.js';
+import { handlePing, handleAlive, handleInfo, handleStats, handleHelp, handleToImg, handlePublic, handlePrivate, handleMode } from './handlers/general.js';
 import { handleTagAll, handleKick, handlePromote, handleDemote } from './handlers/group.js';
 import { handleCertificate } from './handlers/certificate.js';
 import { handleQR } from './handlers/qr.js';
@@ -38,6 +38,7 @@ import { handleWeather, handleTranslate, handleLanguages, handleDefine, handleGI
 import { handleInsta } from './handlers/instagram.js';
 import { handlePetpet } from './handlers/petpet.js';
 import { handleGroq } from './handlers/groq.js';
+import { trackRequest } from './utils/stats.js';
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ async function handleMessage(sock, msg) {
 
   // If triggered via natural phrase "hey p ..." or "yo ..."
   if (groqNaturalMatch) {
+    trackRequest(sender, msg.pushName, 'groq_natural');
     const prompt = groqNaturalMatch[1]?.trim() || '';
     try {
       await handleGroq(sock, msg, prompt);
@@ -104,6 +106,7 @@ async function handleMessage(sock, msg) {
 
   // If user replied to a message sent by the bot (and didn't issue an explicit command)
   if (isReplyToBot && !prefixRe.test(text) && !isBareCmd) {
+    trackRequest(sender, msg.pushName, 'groq_reply');
     try {
       await handleGroq(sock, msg, text);
     } catch (err) {
@@ -118,11 +121,18 @@ async function handleMessage(sock, msg) {
   const command = parts[0].toLowerCase();
   const args    = parts.slice(1);
 
+  // Track the command request
+  trackRequest(sender, msg.pushName, command);
+
   try {
     switch (command) {
       case 'ping':        await handlePing(sock, msg);                break;
       case 'alive':       await handleAlive(sock, msg);               break;
       case 'info':        await handleInfo(sock, msg);                break;
+      case 'stats':
+      case 'stat':
+      case 'log':
+      case 'logs':        await handleStats(sock, msg);               break;
       case 'help':        await handleHelp(sock, msg);                break;
       case 'sticker':     await handleStickerCommand(sock, msg);      break;
       case 'toimg':       await handleToImg(sock, msg);               break;

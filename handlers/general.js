@@ -1,4 +1,6 @@
 import config from '../config.js';
+import { getStats } from '../utils/stats.js';
+import { getNumber } from '../utils/permissions.js';
 
 const BOT_START_TIME = Date.now();
 
@@ -67,6 +69,50 @@ export async function handleInfo(sock, msg) {
   }, { quoted: msg });
 }
 
+/** .stats / .log — shows usage stats, active users, stickers, groq requests */
+export async function handleStats(sock, msg) {
+  const jid = msg.key.remoteJid;
+  const stats = getStats();
+  const uptime = formatUptime(Date.now() - BOT_START_TIME);
+
+  const usersList = Object.entries(stats.users || {});
+  const uniqueUsersCount = usersList.length;
+
+  // Sort top users by request count
+  const topUsers = [...usersList]
+    .sort((a, b) => (b[1].totalRequests || 0) - (a[1].totalRequests || 0))
+    .slice(0, 5);
+
+  let topUsersText = '';
+  if (topUsers.length === 0) {
+    topUsersText = '_(No user activity yet)_';
+  } else {
+    topUsersText = topUsers
+      .map(([userJid, data], i) => {
+        const phone = getNumber(userJid);
+        const masked = phone ? `+${phone.slice(0, 4)}••••${phone.slice(-3)}` : 'Unknown';
+        const displayName = data.name ? `${data.name} (${masked})` : masked;
+        return `${i + 1}. *${displayName}*: ${data.totalRequests || 0} reqs (🎨 ${data.stickersConverted || 0} stickers | 🧠 ${data.groqRequests || 0} AI)`;
+      })
+      .join('\n');
+  }
+
+  const text = [
+    `📊 *${config.botName} — Usage Statistics*`,
+    ``,
+    `⏱️ *Uptime:* ${uptime}`,
+    `👥 *Unique Users:* ${uniqueUsersCount}`,
+    `📨 *Total Requests:* ${stats.totalMessages || 0}`,
+    `🎨 *Stickers Converted:* ${stats.totalStickersConverted || 0}`,
+    `🧠 *Groq AI Requests:* ${stats.totalGroqRequests || 0}`,
+    ``,
+    `🏆 *Top Active Users:*`,
+    topUsersText,
+  ].join('\n');
+
+  await sock.sendMessage(jid, { text }, { quoted: msg });
+}
+
 /** .help — command list */
 export async function handleHelp(sock, msg) {
   const jid = msg.key.remoteJid;
@@ -87,6 +133,7 @@ export async function handleHelp(sock, msg) {
       `› \`${p}ping\` — Check latency & uptime`,
       `› \`${p}alive\` — Check if bot is online`,
       `› \`${p}info\` — Bot stats`,
+      `› \`${p}stats\` — Usage statistics & user logs`,
       `› \`${p}help\` — This menu`,
       ``,
       `*👥 Group (admins only)*`,

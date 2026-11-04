@@ -2,6 +2,7 @@ import { getContentType, downloadMediaMessage } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import { convertToStaticWebP, convertToAnimatedWebP } from '../utils/converter.js';
 import { addStickerMetadata } from '../utils/metadata.js';
+import { trackStickerConversion } from '../utils/stats.js';
 
 const logger = pino({ level: 'silent' });
 
@@ -94,6 +95,10 @@ export async function handleStickerCommand(sock, msg) {
     await sock.sendMessage(jid, {
       sticker: stickerBuffer,
     }, { quoted: msg });
+
+    // Track sticker conversion stat
+    const sender = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
+    trackStickerConversion(sender, msg.pushName);
 
     // Done reaction
     await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });

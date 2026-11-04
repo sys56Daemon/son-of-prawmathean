@@ -1,6 +1,7 @@
 import { Groq } from 'groq-sdk';
 import config from '../config.js';
 import { isOwner } from '../utils/permissions.js';
+import { trackGroqRequest } from '../utils/stats.js';
 
 // Per-chat conversation history in memory (rolling buffer)
 // Map<jid, Array<{ role: 'user' | 'assistant', content: string, timestamp: number }>>
@@ -164,6 +165,9 @@ export async function handleGroq(sock, msg, promptInput) {
     // Save user query (with speaker context) and Rick's answer to conversation history
     addToHistory(jid, 'user', userPromptContent);
     addToHistory(jid, 'assistant', fullResponse);
+
+    // Track successful groq request
+    trackGroqRequest(senderJid, senderName);
 
     await sock.sendMessage(jid, {
       text: fullResponse,
