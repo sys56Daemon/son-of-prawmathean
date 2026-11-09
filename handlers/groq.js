@@ -3,7 +3,20 @@ import config from '../config.js';
 import { isOwner } from '../utils/permissions.js';
 import { trackGroqRequest } from '../utils/stats.js';
 
-// Per-chat conversation history in memory (rolling buffer)
+// Track recently sent message IDs from Groq to avoid self-reply loops
+const sentGroqMsgIds = new Set();
+function recordSentMsgId(id) {
+  if (!id) return;
+  sentGroqMsgIds.add(id);
+  if (sentGroqMsgIds.size > 200) {
+    const oldest = sentGroqMsgIds.values().next().value;
+    sentGroqMsgIds.delete(oldest);
+  }
+}
+
+export function isRecentGroqMsgId(id) {
+  return Boolean(id && sentGroqMsgIds.has(id));
+}
 // Map<jid, Array<{ role: 'user' | 'assistant', content: string, timestamp: number }>>
 const chatHistories = new Map();
 const MAX_HISTORY = 10;
@@ -169,9 +182,12 @@ export async function handleGroq(sock, msg, promptInput) {
     // Track successful groq request
     trackGroqRequest(senderJid, senderName);
 
-    await sock.sendMessage(jid, {
+    const sent = await sock.sendMessage(jid, {
       text: fullResponse,
     }, { quoted: msg });
+    if (sent?.key?.id) {
+      recordSentMsgId(sent.key.id);
+    }
 
     // Clear thinking reaction once response is sent
     try {

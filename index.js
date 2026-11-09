@@ -38,7 +38,7 @@ import { handleCalc, handleFlip, handleRoll, handleRemind, handle8Ball, handleCh
 import { handleWeather, handleTranslate, handleLanguages, handleDefine, handleGInfo, handleTTS } from './handlers/utility.js';
 import { handleInsta } from './handlers/instagram.js';
 import { handlePetpet } from './handlers/petpet.js';
-import { handleGroq } from './handlers/groq.js';
+import { handleGroq, isRecentGroqMsgId } from './handlers/groq.js';
 import { trackRequest } from './utils/stats.js';
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -62,15 +62,25 @@ async function handleMessage(sock, msg) {
   const groqNaturalMatch = text.match(/^(?:hey\s+p|yo)(?:[\s,!?]+|$)(.*)/is);
 
   // Check if this message is a reply to a message sent by the bot
+  // Note: Ignore if msg.key.fromMe is true or if the quoted message was an automated Groq reply
+  // when sent by the bot account itself, to completely prevent infinite self-reply loops.
   const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
   const quotedParticipant = contextInfo?.participant || '';
+  const quotedStanzaId = contextInfo?.stanzaId || '';
   const botUserJid = sock.user?.id || '';
   const botUserLid = sock.user?.lid || '';
-  const isReplyToBot = Boolean(
+  const isQuotedFromBot = Boolean(
     contextInfo?.quotedMessage && (
       (botUserJid && getNumber(quotedParticipant) === getNumber(botUserJid)) ||
       (botUserLid && getNumber(quotedParticipant) === getNumber(botUserLid))
     )
+  );
+  // Never treat messages sent from bot itself as an auto-reply trigger,
+  // and never trigger if the bot is quoting its own recent Groq response.
+  const isReplyToBot = Boolean(
+    !msg.key?.fromMe &&
+    isQuotedFromBot &&
+    !isRecentGroqMsgId(msg.key?.id)
   );
 
   if (!prefixRe.test(text) && !isBareCmd && !groqNaturalMatch && !isReplyToBot) return;
@@ -113,7 +123,7 @@ async function handleMessage(sock, msg) {
   }
 
   // If user replied to a message sent by the bot (and didn't issue an explicit command)
-  if (isReplyToBot && !prefixRe.test(text) && !isBareCmd) {
+  if (!msg.key?.fromMe && isReplyToBot && !prefixRe.test(text) && !isBareCmd) {
     trackRequest(sender, msg.pushName, 'groq_reply');
     try {
       await handleGroq(sock, msg, text);
