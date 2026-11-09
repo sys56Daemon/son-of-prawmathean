@@ -131,6 +131,7 @@ export async function handleHelp(sock, msg) {
       `› \`certificate <name> <role>\` — Generate a mock certificate`,
       `› \`qr <text>\` — Generate a scannable QR code`,
       `› \`${p}thinksay [-s] "think" "say"\` — Think vs Say meme image/sticker`,
+      `› \`gay [-s]\` — Apply rainbow filter over an image/sticker`,
       ``,
       `*📋 General*`,
       `› \`${p}ping\` — Check latency & uptime`,

@@ -39,6 +39,7 @@ import { handleWeather, handleTranslate, handleLanguages, handleDefine, handleGI
 import { handleInsta } from './handlers/instagram.js';
 import { handlePetpet } from './handlers/petpet.js';
 import { handleThinkSay } from './handlers/thinksay.js';
+import { handleGay } from './handlers/gay.js';
 import { handleGroq, isRecentGroqMsgId } from './handlers/groq.js';
 import { trackRequest } from './utils/stats.js';
 
@@ -50,13 +51,14 @@ async function handleMessage(sock, msg) {
   const text = (
     msg.message?.conversation ||
     msg.message?.extendedTextMessage?.text ||
+    msg.message?.imageMessage?.caption ||
     ''
   ).trim();
 
   if (!text) return;
 
   const prefixRe  = new RegExp(`^\\${config.prefix}`, 'i');
-  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq', 'thinksay', 'think'];
+  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq', 'thinksay', 'think', 'gay', 'rainbow'];
   const isBareCmd = BARE_CMDS.some(cmd => new RegExp(`^${cmd}(\\s|$)`, 'i').test(text));
 
   // Natural conversational triggers for Groq AI: "hey p" or "yo" (case insensitive)
@@ -203,6 +205,8 @@ async function handleMessage(sock, msg) {
       case 'petpet':      await handlePetpet(sock, msg);              break;
       case 'thinksay':
       case 'think':       await handleThinkSay(sock, msg, args);      break;
+      case 'gay':
+      case 'rainbow':     await handleGay(sock, msg, args);           break;
       default: break;
     }
   } catch (err) {
