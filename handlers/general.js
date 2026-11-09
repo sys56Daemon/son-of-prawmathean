@@ -130,6 +130,7 @@ export async function handleHelp(sock, msg) {
       `*🎨 Generators*`,
       `› \`certificate <name> <role>\` — Generate a mock certificate`,
       `› \`qr <text>\` — Generate a scannable QR code`,
+      `› \`${p}thinksay [-s] "think" "say"\` — Think vs Say meme image/sticker`,
       ``,
       `*📋 General*`,
       `› \`${p}ping\` — Check latency & uptime`,
