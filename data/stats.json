@@ -1,0 +1,790 @@
+{
+  "totalMessages": 659,
+  "totalGroqRequests": 378,
+  "totalStickersConverted": 53,
+  "commands": {
+    "tts": 6,
+    "choose": 2,
+    "ping": 31,
+    "ഊമ്പ്": 1,
+    "stats": 15,
+    "groq_reply": 325,
+    "certificate": 2,
+    "roll": 1,
+    "ignore": 8,
+    "menu": 2,
+    "sticker": 63,
+    "oomb": 1,
+    "facepalm": 1,
+    "groq_natural": 60,
+    "can": 1,
+    "gpt": 1,
+    "ai": 6,
+    "info": 5,
+    "list": 2,
+    "help": 11,
+    "japan": 1,
+    "gay": 1,
+    "tictactoe": 1,
+    "tt": 1,
+    "ttt": 1,
+    "ph": 1,
+    "qr": 3,
+    "gpay": 2,
+    "india": 2,
+    "loga": 1,
+    "logs": 1,
+    "us": 1,
+    "america": 1,
+    "ignored": 8,
+    "ignorelist": 2,
+    "pari": 1,
+    "private": 1,
+    "remind": 2,
+    "blocked": 1,
+    "sicker": 1,
+    "unignore": 2,
+    "promote": 8,
+    "depromote": 1,
+    "cat": 1,
+    "remove": 1,
+    "send": 1,
+    ".": 2,
+    "tagall": 2,
+    "pet": 12,
+    "..": 5,
+    "cs": 1,
+    "stickwr": 1,
+    "toimg": 2,
+    "del": 1,
+    "toto": 1,
+    "disable": 20,
+    "exit": 1,
+    "enable": 3,
+    "define": 4,
+    "..idhokke": 1,
+    "jid": 2,
+    "flip": 4,
+    "ignore<9037852618>": 1,
+    "unignore<9037852618>": 1,
+    "certify": 2
+  },
+  "users": {
+    "72774412431575@lid": {
+      "name": "𝐌 𝐑 𝐋 𝕏",
+      "totalRequests": 4,
+      "groqRequests": 0,
+      "stickersConverted": 0,
+      "commands": {
+        "tts": 2,
+        "certificate": 1,
+        "menu": 1
+      },
+      "firstSeen": "2026-11-04T08:05:37.342Z",
+      "lastSeen": "2026-11-04T08:10:18.436Z"
+    },
+    "236614143971572@lid": {
+      "name": "CK~",
+      "totalRequests": 18,
+      "groqRequests": 9,
+      "stickersConverted": 5,
+      "commands": {
+        "choose": 2,
+        "groq_reply": 9,
+        "sticker": 5,
+        "help": 2
+      },
+      "firstSeen": "2026-11-04T08:05:42.094Z",
+      "lastSeen": "2026-11-09T08:20:04.423Z"
+    },
+    "280062402269304@lid": {
+      "name": "P",
+      "totalRequests": 134,
+      "groqRequests": 33,
+      "stickersConverted": 13,
+      "commands": {
+        "ping": 28,
+        "stats": 8,
+        "ignore": 5,
+        "facepalm": 1,
+        "qr": 2,
+        "groq_reply": 15,
+        "loga": 1,
+        "logs": 1,
+        "ignored": 8,
+        "ignorelist": 2,
+        "help": 3,
+        "private": 1,
+        "blocked": 1,
+        "sticker": 15,
+        "unignore": 1,
+        "promote": 4,
+        ".": 1,
+        "tagall": 1,
+        "groq_natural": 18,
+        "pet": 6,
+        "info": 2,
+        "..": 2,
+        "disable": 4,
+        "enable": 2,
+        "certify": 2
+      },
+      "firstSeen": "2026-11-04T08:05:54.627Z",
+      "lastSeen": "2026-11-09T09:15:56.611Z"
+    },
+    "74586620203091@lid": {
+      "name": ". 07",
+      "totalRequests": 3,
+      "groqRequests": 0,
+      "stickersConverted": 0,
+      "commands": {
+        "ഊമ്പ്": 1,
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-04T08:06:01.449Z",
+      "lastSeen": "2026-11-08T15:47:13.579Z"
+    },
+    "88528016908506@lid": {
+      "name": "mhdalik (\"⁧;(\"‎",
+      "totalRequests": 61,
+      "groqRequests": 22,
+      "stickersConverted": 6,
+      "commands": {
+        "roll": 1,
+        "sticker": 7,
+        "groq_natural": 3,
+        "tts": 1,
+        "list": 2,
+        "ai": 2,
+        "tt": 1,
+        "us": 1,
+        "america": 1,
+        "india": 1,
+        "remind": 2,
+        "sicker": 1,
+        "groq_reply": 17,
+        "help": 1,
+        "info": 1,
+        "ignore": 2,
+        "ping": 2,
+        "stats": 5,
+        "cat": 1,
+        "stickwr": 1,
+        "toimg": 1,
+        "del": 1,
+        "disable": 1,
+        "enable": 1,
+        "define": 4
+      },
+      "firstSeen": "2026-11-04T08:07:16.562Z",
+      "lastSeen": "2026-11-06T14:35:35.908Z"
+    },
+    "243069530194055@lid": {
+      "name": "Anzil",
+      "totalRequests": 41,
+      "groqRequests": 27,
+      "stickersConverted": 0,
+      "commands": {
+        "certificate": 1,
+        "oomb": 1,
+        "tts": 1,
+        "gpt": 1,
+        "ai": 3,
+        "ph": 1,
+        "gpay": 2,
+        "remove": 1,
+        "send": 1,
+        "tagall": 1,
+        "toto": 1,
+        "exit": 1,
+        "groq_natural": 7,
+        "groq_reply": 19
+      },
+      "firstSeen": "2026-11-04T08:07:39.482Z",
+      "lastSeen": "2026-11-05T10:45:00.018Z"
+    },
+    "47996930646075@lid": {
+      "name": "Sponge",
+      "totalRequests": 2,
+      "groqRequests": 0,
+      "stickersConverted": 0,
+      "commands": {
+        "tts": 2
+      },
+      "firstSeen": "2026-11-04T08:08:19.687Z",
+      "lastSeen": "2026-11-04T08:08:57.415Z"
+    },
+    "191637615546512@lid": {
+      "name": "Bobby",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 0,
+      "commands": {
+        "can": 1
+      },
+      "firstSeen": "2026-11-04T08:09:06.396Z",
+      "lastSeen": "2026-11-04T08:09:06.396Z"
+    },
+    "193896416034994@lid": {
+      "name": "Shamil Saleem",
+      "totalRequests": 10,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "info": 2,
+        "help": 1,
+        "japan": 1,
+        "gay": 1,
+        "tictactoe": 1,
+        "ttt": 1,
+        "india": 1,
+        "groq_natural": 2
+      },
+      "firstSeen": "2026-11-04T08:10:00.328Z",
+      "lastSeen": "2026-11-04T10:48:30.714Z"
+    },
+    "277961810915432@lid": {
+      "name": "၂ίvıͣɳͫᥫ᭡",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 0,
+      "commands": {
+        "pari": 1
+      },
+      "firstSeen": "2026-11-04T08:20:08.031Z",
+      "lastSeen": "2026-11-04T08:20:08.031Z"
+    },
+    "259510933426240@lid": {
+      "name": "Abin 03",
+      "totalRequests": 2,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 2
+      },
+      "firstSeen": "2026-11-04T09:08:11.669Z",
+      "lastSeen": "2026-11-04T09:08:36.930Z"
+    },
+    "114349561634909@lid": {
+      "name": "RSKT 💚",
+      "totalRequests": 9,
+      "groqRequests": 4,
+      "stickersConverted": 0,
+      "commands": {
+        "promote": 4,
+        "groq_reply": 4,
+        "depromote": 1
+      },
+      "firstSeen": "2026-11-04T09:35:32.866Z",
+      "lastSeen": "2026-11-09T10:04:47.324Z"
+    },
+    "162358672531526@lid": {
+      "name": "𝙰̲𝚜̲𝚑̲‌𝚒̲𝚚𝚞̲𝚎̲",
+      "totalRequests": 20,
+      "groqRequests": 13,
+      "stickersConverted": 1,
+      "commands": {
+        "groq_reply": 13,
+        "help": 1,
+        "stats": 1,
+        "ignore": 1,
+        "sticker": 1,
+        "menu": 1,
+        "jid": 2
+      },
+      "firstSeen": "2026-11-04T09:37:51.732Z",
+      "lastSeen": "2026-11-06T14:32:28.645Z"
+    },
+    "119756657037373@lid": {
+      "name": "‎",
+      "totalRequests": 2,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "cs": 1,
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-04T11:09:35.257Z",
+      "lastSeen": "2026-11-05T08:52:29.174Z"
+    },
+    "215925756285126@lid": {
+      "name": "Rick",
+      "totalRequests": 6,
+      "groqRequests": 0,
+      "stickersConverted": 0,
+      "commands": {
+        "sticker": 1,
+        "help": 1,
+        "disable": 3,
+        "stats": 1
+      },
+      "firstSeen": "2026-11-04T11:16:04.031Z",
+      "lastSeen": "2026-11-05T09:34:49.456Z"
+    },
+    "85835139559444@lid": {
+      "name": "driswal",
+      "totalRequests": 5,
+      "groqRequests": 3,
+      "stickersConverted": 0,
+      "commands": {
+        "pet": 2,
+        "groq_natural": 3
+      },
+      "firstSeen": "2026-11-04T11:31:56.306Z",
+      "lastSeen": "2026-11-09T09:16:03.638Z"
+    },
+    "211106786230489@lid": {
+      "name": "A💗H",
+      "totalRequests": 1,
+      "groqRequests": 1,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 1
+      },
+      "firstSeen": "2026-11-04T11:35:10.898Z",
+      "lastSeen": "2026-11-04T11:35:16.914Z"
+    },
+    "276854078447654@lid": {
+      "name": ".",
+      "totalRequests": 2,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 2
+      },
+      "firstSeen": "2026-11-04T12:12:10.317Z",
+      "lastSeen": "2026-11-04T13:02:09.722Z"
+    },
+    "250289772867822@lid": {
+      "name": "Ronnie",
+      "totalRequests": 7,
+      "groqRequests": 7,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 7
+      },
+      "firstSeen": "2026-11-04T12:17:09.985Z",
+      "lastSeen": "2026-11-05T08:50:54.106Z"
+    },
+    "125783200817227@lid": {
+      "name": "JUTT🤤",
+      "totalRequests": 2,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 2
+      },
+      "firstSeen": "2026-11-04T12:36:57.894Z",
+      "lastSeen": "2026-11-04T13:30:34.329Z"
+    },
+    "112743059312875@lid": {
+      "name": "🪩Katri🪩",
+      "totalRequests": 2,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 2
+      },
+      "firstSeen": "2026-11-04T12:42:56.584Z",
+      "lastSeen": "2026-11-04T12:43:08.012Z"
+    },
+    "220718436474995@lid": {
+      "name": "Andreas🇩🇰",
+      "totalRequests": 2,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 2
+      },
+      "firstSeen": "2026-11-04T12:44:43.641Z",
+      "lastSeen": "2026-11-04T12:55:12.388Z"
+    },
+    "147403311214811@lid": {
+      "name": "❖ƬʜᴇGᴼᴷᵁ Bᴸᴬᶜᴷヅ",
+      "totalRequests": 2,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 2
+      },
+      "firstSeen": "2026-11-04T13:26:59.420Z",
+      "lastSeen": "2026-11-04T13:30:02.236Z"
+    },
+    "7473243136249@lid": {
+      "name": "唯一的阿瑪爾 ☭",
+      "totalRequests": 2,
+      "groqRequests": 1,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_natural": 2
+      },
+      "firstSeen": "2026-11-04T13:46:55.344Z",
+      "lastSeen": "2026-11-04T13:48:02.027Z"
+    },
+    "919037972225:29@s.whatsapp.net": {
+      "name": "Rick",
+      "totalRequests": 133,
+      "groqRequests": 109,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 114,
+        "ping": 1,
+        "disable": 12,
+        "qr": 1,
+        "groq_natural": 2,
+        "..": 2
+      },
+      "firstSeen": "2026-11-04T13:54:29.249Z",
+      "lastSeen": "2026-11-05T09:46:37.985Z"
+    },
+    "87252831084758@lid": {
+      "name": "sreehaRi🎭",
+      "totalRequests": 2,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 2
+      },
+      "firstSeen": "2026-11-04T15:43:14.854Z",
+      "lastSeen": "2026-11-04T15:43:26.727Z"
+    },
+    "77747682578560@lid": {
+      "name": "Shreeram",
+      "totalRequests": 1,
+      "groqRequests": 1,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_natural": 1
+      },
+      "firstSeen": "2026-11-04T16:20:35.350Z",
+      "lastSeen": "2026-11-04T16:20:37.256Z"
+    },
+    "66572496425004@lid": {
+      "name": "TheComputerMan",
+      "totalRequests": 27,
+      "groqRequests": 27,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 27
+      },
+      "firstSeen": "2026-11-04T23:08:52.806Z",
+      "lastSeen": "2026-11-04T23:30:08.316Z"
+    },
+    "49224687308959@lid": {
+      "name": "∆",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-05T02:25:52.562Z",
+      "lastSeen": "2026-11-05T02:26:08.096Z"
+    },
+    "117909787557944@lid": {
+      "name": "Abhinand",
+      "totalRequests": 2,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 2
+      },
+      "firstSeen": "2026-11-05T02:52:05.743Z",
+      "lastSeen": "2026-11-05T02:52:34.633Z"
+    },
+    "89979799736457@lid": {
+      "name": "卐 वाल्निक्को 卐",
+      "totalRequests": 41,
+      "groqRequests": 41,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 41
+      },
+      "firstSeen": "2026-11-05T05:25:25.576Z",
+      "lastSeen": "2026-11-06T14:37:03.203Z"
+    },
+    "93815071371304@lid": {
+      "name": "Arjun",
+      "totalRequests": 3,
+      "groqRequests": 0,
+      "stickersConverted": 3,
+      "commands": {
+        "sticker": 3
+      },
+      "firstSeen": "2026-11-05T08:35:42.175Z",
+      "lastSeen": "2026-11-05T08:39:28.749Z"
+    },
+    "213670344785962@lid": {
+      "name": "Abin",
+      "totalRequests": 1,
+      "groqRequests": 1,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 1
+      },
+      "firstSeen": "2026-11-05T08:50:05.717Z",
+      "lastSeen": "2026-11-05T08:50:08.615Z"
+    },
+    "279014044397579@lid": {
+      "name": "Aaryan",
+      "totalRequests": 7,
+      "groqRequests": 4,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_natural": 2,
+        "groq_reply": 3,
+        "pet": 2
+      },
+      "firstSeen": "2026-11-05T09:39:35.648Z",
+      "lastSeen": "2026-11-05T18:38:31.199Z"
+    },
+    "127844449562758@lid": {
+      "name": "suman",
+      "totalRequests": 5,
+      "groqRequests": 4,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_natural": 5
+      },
+      "firstSeen": "2026-11-05T09:53:29.629Z",
+      "lastSeen": "2026-11-05T10:01:13.910Z"
+    },
+    "62848977895445@lid": {
+      "name": "Sneha",
+      "totalRequests": 10,
+      "groqRequests": 6,
+      "stickersConverted": 0,
+      "commands": {
+        "..": 1,
+        "help": 1,
+        "groq_natural": 2,
+        ".": 1,
+        "groq_reply": 4,
+        "..idhokke": 1
+      },
+      "firstSeen": "2026-11-05T10:00:18.345Z",
+      "lastSeen": "2026-11-05T18:42:31.365Z"
+    },
+    "268147844218993@lid": {
+      "name": "🪨",
+      "totalRequests": 2,
+      "groqRequests": 0,
+      "stickersConverted": 2,
+      "commands": {
+        "sticker": 2
+      },
+      "firstSeen": "2026-11-05T10:43:05.059Z",
+      "lastSeen": "2026-11-08T22:53:05.384Z"
+    },
+    "146213739454700@lid": {
+      "name": "Akshay",
+      "totalRequests": 1,
+      "groqRequests": 1,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_natural": 1
+      },
+      "firstSeen": "2026-11-05T16:46:39.267Z",
+      "lastSeen": "2026-11-05T16:46:40.316Z"
+    },
+    "212974996332628@lid": {
+      "name": "Adarsh",
+      "totalRequests": 12,
+      "groqRequests": 9,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_natural": 3,
+        "groq_reply": 6,
+        "pet": 2,
+        "unignore": 1
+      },
+      "firstSeen": "2026-11-05T18:26:48.775Z",
+      "lastSeen": "2026-11-05T18:39:32.893Z"
+    },
+    "27977484091505@lid": {
+      "name": "Ashik Rafeek",
+      "totalRequests": 3,
+      "groqRequests": 0,
+      "stickersConverted": 3,
+      "commands": {
+        "sticker": 3
+      },
+      "firstSeen": "2026-11-06T14:07:42.852Z",
+      "lastSeen": "2026-11-06T14:09:03.809Z"
+    },
+    "180500480131222@lid": {
+      "name": "a",
+      "totalRequests": 2,
+      "groqRequests": 0,
+      "stickersConverted": 2,
+      "commands": {
+        "sticker": 2
+      },
+      "firstSeen": "2026-11-06T14:18:55.925Z",
+      "lastSeen": "2026-11-06T15:52:12.310Z"
+    },
+    "61336545435834@lid": {
+      "name": "𝙎𝙃𝘼𝙃𝙄𝙍⚡𝙈𝘼𝙍𝙑𝙀𝙇",
+      "totalRequests": 29,
+      "groqRequests": 29,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_reply": 29
+      },
+      "firstSeen": "2026-11-06T14:19:59.161Z",
+      "lastSeen": "2026-11-06T14:33:05.108Z"
+    },
+    "202873333899307@lid": {
+      "name": "Amal",
+      "totalRequests": 4,
+      "groqRequests": 0,
+      "stickersConverted": 4,
+      "commands": {
+        "sticker": 4
+      },
+      "firstSeen": "2026-11-06T14:32:22.631Z",
+      "lastSeen": "2026-11-06T14:34:50.727Z"
+    },
+    "172516840620034@lid": {
+      "name": "🕸️♥️",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 0,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-07T06:55:38.063Z",
+      "lastSeen": "2026-11-07T06:55:38.064Z"
+    },
+    "20435538321638@lid": {
+      "name": "Gowtham🤍✨",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-07T06:57:18.574Z",
+      "lastSeen": "2026-11-07T06:57:50.236Z"
+    },
+    "68135713505289@lid": {
+      "name": "kunju",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-07T08:48:03.145Z",
+      "lastSeen": "2026-11-07T08:48:13.856Z"
+    },
+    "43714294612140@lid": {
+      "name": "yousaf",
+      "totalRequests": 18,
+      "groqRequests": 8,
+      "stickersConverted": 0,
+      "commands": {
+        "groq_natural": 9,
+        "help": 1,
+        "toimg": 1,
+        "sticker": 1,
+        "flip": 4,
+        "ignore<9037852618>": 1,
+        "unignore<9037852618>": 1
+      },
+      "firstSeen": "2026-11-07T13:30:42.671Z",
+      "lastSeen": "2026-11-07T18:21:46.168Z"
+    },
+    "102662653665526@lid": {
+      "name": "丂ﾌv",
+      "totalRequests": 2,
+      "groqRequests": 0,
+      "stickersConverted": 2,
+      "commands": {
+        "sticker": 2
+      },
+      "firstSeen": "2026-11-07T19:22:38.706Z",
+      "lastSeen": "2026-11-07T19:25:53.182Z"
+    },
+    "80440492834948@lid": {
+      "name": "nk",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-08T04:48:48.017Z",
+      "lastSeen": "2026-11-08T04:48:56.927Z"
+    },
+    "45406494933030@lid": {
+      "name": "NOLAN",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-08T09:40:10.554Z",
+      "lastSeen": "2026-11-08T09:40:18.991Z"
+    },
+    "114289096544365@lid": {
+      "name": "Rahul.S.S",
+      "totalRequests": 4,
+      "groqRequests": 0,
+      "stickersConverted": 2,
+      "commands": {
+        "sticker": 4
+      },
+      "firstSeen": "2026-11-08T14:18:20.785Z",
+      "lastSeen": "2026-11-08T14:19:29.236Z"
+    },
+    "41807379492875@lid": {
+      "name": "J",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-08T15:39:21.288Z",
+      "lastSeen": "2026-11-08T15:39:32.738Z"
+    },
+    "255314347733024@lid": {
+      "name": "amall",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-08T15:40:59.700Z",
+      "lastSeen": "2026-11-08T15:41:02.580Z"
+    },
+    "115663569973275@lid": {
+      "name": "Hari",
+      "totalRequests": 1,
+      "groqRequests": 0,
+      "stickersConverted": 1,
+      "commands": {
+        "sticker": 1
+      },
+      "firstSeen": "2026-11-09T05:51:19.325Z",
+      "lastSeen": "2026-11-09T05:51:31.705Z"
+    },
+    "120641588076604@lid": {
+      "name": "abincode",
+      "totalRequests": 2,
+      "groqRequests": 2,
+      "stickersConverted": 0,
+      "commands": {
+        "ai": 1,
+        "groq_reply": 1
+      },
+      "firstSeen": "2026-11-09T10:02:48.520Z",
+      "lastSeen": "2026-11-09T10:04:11.647Z"
+    }
+  },
+  "firstSeen": "2026-11-04T08:05:20.077Z",
+  "lastUpdated": "2026-11-09T10:04:48.325Z"
+}

@@ -25,11 +25,12 @@ console.error = function (...args) {
   originalConsoleError.apply(console, args);
 };
 
-import { isAllowed, getNumber, isUnconfigured } from './utils/permissions.js';
+import { isAllowed, getNumber, isUnconfigured, isOwner } from './utils/permissions.js';
+import { isChatDisabled } from './utils/chatfilter.js';
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 import { handleStickerCommand } from './handlers/sticker.js';
-import { handlePing, handleAlive, handleInfo, handleStats, handleHelp, handleToImg, handlePublic, handlePrivate, handleMode } from './handlers/general.js';
+import { handlePing, handleAlive, handleInfo, handleStats, handleHelp, handleToImg, handlePublic, handlePrivate, handleMode, handleIgnore, handleUnignore, handleIgnoreList, handleDisable, handleEnable, handleDisabledList } from './handlers/general.js';
 import { handleTagAll, handleKick, handlePromote, handleDemote } from './handlers/group.js';
 import { handleCertificate } from './handlers/certificate.js';
 import { handleQR } from './handlers/qr.js';
@@ -79,15 +80,22 @@ async function handleMessage(sock, msg) {
   const sender  = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
 
   // ── Permission check ─────────────────────────────────────────────────────
-  // If sender is a LID (@lid), compare against the bot's own LID.
-  // If sender is a normal JID, use isAllowed() (checks ownerNumber + allowedNumbers).
+  // If message is fromMe, or sender is in ownerNumbers / matches bot/owner LID, grant top-priority owner access.
   const botLid = sock.user?.lid ?? '';
   const senderLidMatchesOwner = sender?.endsWith('@lid') && botLid
     ? getNumber(sender) === getNumber(botLid)
     : false;
+  const isSenderOwner = msg.key.fromMe || senderLidMatchesOwner || isOwner(sender, sock);
 
-  if (!senderLidMatchesOwner && !isAllowed(sender)) {
+  if (!isSenderOwner && !isAllowed(sender)) {
     console.log(`[debug] Ignored: sender ${sender} not authorized.`);
+    return;
+  }
+
+  // ── Disabled Chat check ──────────────────────────────────────────────────
+  // If the chat is disabled, only the bot owners can run commands in it
+  // (such as .enable to restore the bot)
+  if (isChatDisabled(jid) && !isSenderOwner) {
     return;
   }
 
@@ -142,10 +150,22 @@ async function handleMessage(sock, msg) {
       case 'mode':        await handleMode(sock, msg);                break;
       case 'public':      await handlePublic(sock, msg);              break;
       case 'private':     await handlePrivate(sock, msg);             break;
+      case 'ignore':
+      case 'block':       await handleIgnore(sock, msg, args);        break;
+      case 'unignore':
+      case 'unblock':     await handleUnignore(sock, msg, args);      break;
+      case 'ignorelist':
+      case 'ignored':
+      case 'blocklist':   await handleIgnoreList(sock, msg);          break;
+      case 'disable':     await handleDisable(sock, msg);             break;
+      case 'enable':      await handleEnable(sock, msg, args);        break;
+      case 'disabledlist':
+      case 'disabledchats': await handleDisabledList(sock, msg);       break;
       case 'tagall':      await handleTagAll(sock, msg, args);        break;
-      case 'kick':        await handleKick(sock, msg);                break;
-      case 'promote':     await handlePromote(sock, msg);             break;
-      case 'demote':      await handleDemote(sock, msg);              break;
+      case 'kick':        await handleKick(sock, msg, args);          break;
+      case 'promote':     await handlePromote(sock, msg, args);       break;
+      case 'demote':
+      case 'depromote':   await handleDemote(sock, msg, args);        break;
       // ── Fun ────────────────────────────────────────────────────────────────
       case 'calc':        await handleCalc(sock, msg, args);          break;
       case 'flip':        await handleFlip(sock, msg);                break;
@@ -274,9 +294,11 @@ async function connectToWhatsApp() {
         console.log('[DEBUG] Full message object:', JSON.stringify(msg, null, 2));
       }
     }
-    if (type !== 'notify') return;
+    // Process 'notify' (incoming from other users) and 'append' (sent from bot's own WhatsApp account)
     for (const msg of messages) {
-      await handleMessage(sock, msg);
+      if (type === 'notify' || (type === 'append' && msg.key?.fromMe)) {
+        await handleMessage(sock, msg);
+      }
     }
   });
 }

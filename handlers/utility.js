@@ -4,6 +4,15 @@
  * All use free/no-key APIs — Termux and PC friendly.
  */
 
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { writeFile, readFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
+
+const execFileAsync = promisify(execFile);
+
 // ─── .weather ─────────────────────────────────────────────────────────────────
 
 /**
@@ -445,10 +454,37 @@ export async function handleTTS(sock, msg, args) {
 
     const mp3Buffer = Buffer.from(await res.arrayBuffer());
 
+    // Convert MP3 to OGG Opus (required for WhatsApp PTT voice notes to play across all devices)
+    const id = randomUUID();
+    const inputMp3 = join(tmpdir(), `tts_${id}.mp3`);
+    const outputOgg = join(tmpdir(), `tts_${id}.ogg`);
+
+    let audioBuffer = mp3Buffer;
+    let mimetype = 'audio/mpeg';
+
+    try {
+      await writeFile(inputMp3, mp3Buffer);
+      await execFileAsync('ffmpeg', [
+        '-y',
+        '-i', inputMp3,
+        '-c:a', 'libopus',
+        '-b:a', '32k',
+        '-vbr', 'on',
+        outputOgg,
+      ]);
+      audioBuffer = await readFile(outputOgg);
+      mimetype = 'audio/ogg; codecs=opus';
+    } catch (ffmpegErr) {
+      console.warn('[tts] ffmpeg conversion warning, falling back to mp3:', ffmpegErr.message);
+    } finally {
+      await unlink(inputMp3).catch(() => {});
+      await unlink(outputOgg).catch(() => {});
+    }
+
     await sock.sendMessage(jid, {
-      audio:    mp3Buffer,
-      mimetype: 'audio/mpeg',
-      ptt:      true,   // sends as voice note
+      audio:    audioBuffer,
+      mimetype,
+      ptt:      true,   // sends as playable voice note
     }, { quoted: msg });
 
     await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });

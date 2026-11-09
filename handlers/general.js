@@ -1,6 +1,8 @@
 import config from '../config.js';
 import { getStats } from '../utils/stats.js';
 import { getNumber } from '../utils/permissions.js';
+import { addToBlocklist, removeFromBlocklist, getBlocklist, getBlocklistDetails } from '../utils/blocklist.js';
+import { disableChat, enableChat, getDisabledChats, isChatDisabled } from '../utils/chatfilter.js';
 
 const BOT_START_TIME = Date.now();
 
@@ -166,6 +168,12 @@ export async function handleHelp(sock, msg) {
       `› \`${p}mode\` — Toggle Private/Public`,
       `› \`${p}public\` — Switch to Public mode`,
       `› \`${p}private\` — Switch to Private mode`,
+      `› \`${p}disable\` — Disable bot in this chat`,
+      `› \`${p}enable [jid]\` — Re-enable bot in this/target chat`,
+      `› \`${p}disabledlist\` — List all disabled chats`,
+      `› \`${p}ignore <num/@>\` — Ignore/block user`,
+      `› \`${p}unignore <num/@>\` — Unblock user`,
+      `› \`${p}ignorelist\` — View ignored users`,
       ``,
       `_Prefix: \`${p}\`_`,
     ].join('\n'),
@@ -272,5 +280,257 @@ export async function handleMode(sock, msg) {
 
   await sock.sendMessage(msg.key.remoteJid, {
     text: `⚙️ *Mode Toggled*\n\nStatus: *${status}*\n${desc}`,
+  }, { quoted: msg });
+}
+
+/** .ignore [number|@mention] — ignore/blocklist a user (Owner only) */
+export async function handleIgnore(sock, msg, args) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender)) return;
+
+  const jid = msg.key.remoteJid;
+  const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+  const mentioned = contextInfo?.mentionedJid || [];
+  const quotedParticipant = contextInfo?.participant;
+
+  let target = '';
+  let meta = {};
+
+  if (args.length > 0) {
+    const rawArg = args.join(' ').trim();
+    const digitsOnly = rawArg.replace(/[^\d+]/g, '');
+    if (digitsOnly) {
+      target = digitsOnly;
+      meta.phone = digitsOnly.replace(/\D/g, '');
+    }
+  } else if (mentioned.length > 0) {
+    target = mentioned[0];
+    meta.jid = target;
+  } else if (quotedParticipant) {
+    target = quotedParticipant;
+    meta.jid = target;
+  }
+
+  // If in a group, try to resolve phone number or name from group metadata
+  if (jid.endsWith('@g.us')) {
+    try {
+      const gmeta = await sock.groupMetadata(jid);
+      const targetNum = target.replace(/\D/g, '');
+      const participant = gmeta.participants.find(p => 
+        p.id === target || p.lid === target || p.jid === target ||
+        getNumber(p.id) === targetNum || (p.lid && getNumber(p.lid) === targetNum) || (p.jid && getNumber(p.jid) === targetNum)
+      );
+      if (participant) {
+        if (participant.jid) meta.phone = getNumber(participant.jid);
+        if (participant.name || participant.notify) meta.name = participant.name || participant.notify;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!target) {
+    await sock.sendMessage(jid, {
+      text: '❌ Please specify a phone number, mention a user, or reply to their message.\nExample: `.ignore +919037972225`',
+    }, { quoted: msg });
+    return;
+  }
+
+  const cleanNum = target.replace(/\D/g, '');
+  if (isOwner(target) || (meta.phone && isOwner(meta.phone))) {
+    await sock.sendMessage(jid, {
+      text: '⚠️ You cannot ignore/block the bot owner.',
+    }, { quoted: msg });
+    return;
+  }
+
+  const added = addToBlocklist(cleanNum, meta);
+  const mentionJid = meta.jid || (meta.phone ? `${meta.phone}@s.whatsapp.net` : (cleanNum.length > 10 ? `${cleanNum}@s.whatsapp.net` : null));
+  const displayText = meta.phone ? `+${meta.phone}` : (cleanNum.length <= 13 ? `+${cleanNum}` : `@${cleanNum}`);
+
+  if (added) {
+    await sock.sendMessage(jid, {
+      text: `🚫 *Blocked & Ignored*: ${displayText}\nThe bot will now completely ignore all commands and interactions from this user.`,
+      mentions: mentionJid ? [mentionJid] : [],
+    }, { quoted: msg });
+  } else {
+    await sock.sendMessage(jid, {
+      text: `ℹ️ ${displayText} is already on the ignore list.`,
+      mentions: mentionJid ? [mentionJid] : [],
+    }, { quoted: msg });
+  }
+}
+
+/** .unignore [number|@mention] — unignore/unblock a user (Owner only) */
+export async function handleUnignore(sock, msg, args) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender)) return;
+
+  const jid = msg.key.remoteJid;
+  const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+  const mentioned = contextInfo?.mentionedJid || [];
+  const quotedParticipant = contextInfo?.participant;
+
+  let target = '';
+  if (args.length > 0) {
+    target = args.join(' ').replace(/[^\d+]/g, '');
+  } else if (mentioned.length > 0) {
+    target = mentioned[0];
+  } else if (quotedParticipant) {
+    target = quotedParticipant;
+  }
+
+  if (!target) {
+    await sock.sendMessage(jid, {
+      text: '❌ Please specify a phone number, mention a user, or reply to their message.\nExample: `.unignore +919037972225`',
+    }, { quoted: msg });
+    return;
+  }
+
+  const cleanNum = target.replace(/\D/g, '');
+  const removed = removeFromBlocklist(cleanNum);
+  if (removed) {
+    await sock.sendMessage(jid, {
+      text: `✅ *Removed from ignore list*: ${cleanNum.length <= 13 ? '+' + cleanNum : '@' + cleanNum}\nThe bot will now accept commands from this user again.`,
+      mentions: [target.includes('@') ? target : `${cleanNum}@s.whatsapp.net`],
+    }, { quoted: msg });
+  } else {
+    await sock.sendMessage(jid, {
+      text: `ℹ️ ${cleanNum} was not found on the ignore list.`,
+    }, { quoted: msg });
+  }
+}
+
+/** .ignorelist / .ignored / .blocklist — view all ignored numbers (Owner only) */
+export async function handleIgnoreList(sock, msg) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender)) return;
+
+  const jid = msg.key.remoteJid;
+  const list = getBlocklistDetails();
+
+  if (list.length === 0) {
+    await sock.sendMessage(jid, {
+      text: '📋 *Ignore List is empty.*\nNo users or numbers are currently blocked.',
+    }, { quoted: msg });
+    return;
+  }
+
+  // Attempt to enrich any LIDs with groupMetadata if in a group
+  let groupParticipants = [];
+  if (jid.endsWith('@g.us')) {
+    try {
+      const gmeta = await sock.groupMetadata(jid);
+      groupParticipants = gmeta.participants || [];
+    } catch {
+      // ignore
+    }
+  }
+
+  const mentions = [];
+  const lines = list.map((item, i) => {
+    let phone = item.phone;
+    let name = item.name;
+
+    // Check if we can find this user in group metadata
+    if (!phone && groupParticipants.length > 0) {
+      const p = groupParticipants.find(gp => 
+        gp.id === item.id || gp.lid === item.id || (gp.lid && getNumber(gp.lid) === item.id) ||
+        (gp.jid && getNumber(gp.jid) === item.id) || getNumber(gp.id) === item.id
+      );
+      if (p) {
+        if (p.jid) phone = getNumber(p.jid);
+        if (p.name || p.notify) name = p.name || p.notify;
+      }
+    }
+
+    if (item.jid) mentions.push(item.jid);
+    else if (phone) mentions.push(`${phone}@s.whatsapp.net`);
+    else if (item.id) mentions.push(`${item.id}@lid`);
+
+    if (phone) {
+      return `${i + 1}. +${phone}${name ? ` (${name})` : ''} — @${phone}`;
+    } else {
+      // Fallback: Mention by LID or ID
+      return `${i + 1}. @${item.id}${name ? ` (${name})` : ''}`;
+    }
+  });
+
+  await sock.sendMessage(jid, {
+    text: `🚫 *Ignored Users (${list.length}):*\n\n${lines.join('\n')}\n\n_Use \`.unignore <number>\` to unblock._`,
+    mentions,
+  }, { quoted: msg });
+}
+
+/** .disable — disable bot in this chat (Owner only) */
+export async function handleDisable(sock, msg) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender)) return;
+
+  const jid = msg.key.remoteJid;
+  const isGroup = jid.endsWith('@g.us');
+  const chatType = isGroup ? 'group' : 'DM';
+
+  const disabled = disableChat(jid);
+  if (disabled) {
+    await sock.sendMessage(jid, {
+      text: `🔕 *Bot disabled in this ${chatType}.*\nI won't respond to any commands or messages here anymore.\n\n_Send \`.enable\` from another chat (DM me) or use \`.enable <jid>\` to restore._`,
+    }, { quoted: msg });
+  } else {
+    await sock.sendMessage(jid, {
+      text: `ℹ️ Bot is already disabled in this ${chatType}.`,
+    }, { quoted: msg });
+  }
+}
+
+/** .enable [jid] — re-enable bot in this (or another) chat (Owner only) */
+export async function handleEnable(sock, msg, args) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender)) return;
+
+  // If a JID argument is provided, re-enable that specific chat remotely
+  const targetJid = args[0] ? args[0].trim() : msg.key.remoteJid;
+
+  const enabled = enableChat(targetJid);
+  const jid = msg.key.remoteJid;
+  if (enabled) {
+    await sock.sendMessage(jid, {
+      text: `✅ *Bot re-enabled* in \`${targetJid}\`.\nCommands will work there again.`,
+    }, { quoted: msg });
+  } else {
+    await sock.sendMessage(jid, {
+      text: `ℹ️ \`${targetJid}\` wasn't disabled.`,
+    }, { quoted: msg });
+  }
+}
+
+/** .disabledlist / .disabledchats — list all disabled chats (Owner only) */
+export async function handleDisabledList(sock, msg) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender)) return;
+
+  const jid = msg.key.remoteJid;
+  const list = getDisabledChats();
+
+  if (list.length === 0) {
+    await sock.sendMessage(jid, {
+      text: '📋 *No chats are currently disabled.*',
+    }, { quoted: msg });
+    return;
+  }
+
+  const formatted = list.map((chatJid, i) => {
+    const type = chatJid.endsWith('@g.us') ? '👥 Group' : '👤 DM';
+    return `${i + 1}. ${type}: \`${chatJid}\``;
+  }).join('\n');
+
+  await sock.sendMessage(jid, {
+    text: `🔕 *Disabled Chats (${list.length}):*\n\n${formatted}\n\n_Use \`.enable <jid>\` to re-enable a specific chat._`,
   }, { quoted: msg });
 }
