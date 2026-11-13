@@ -139,6 +139,7 @@ export async function handleHelp(sock, msg) {
       `› \`${p}alive\` — Check if bot is online`,
       `› \`${p}info\` — Bot stats`,
       `› \`${p}stats\` — Usage statistics & user logs`,
+      `› \`${p}donate\` — Support the creator (UPI)`,
       `› \`${p}help\` — This menu`,
       ``,
       `*👥 Group (admins only)*`,
@@ -167,7 +168,66 @@ export async function handleHelp(sock, msg) {
       `› \`yo <prompt>\` or \`hey p <prompt>\` — Chat with AI`,
       `› \`${p}ai <prompt>\` — Chat with AI`,
       ``,
-      `*👑 Owner* (only P can use this. So, no point in readin this)`,
+      `_Prefix: \`${p}\`_`,
+    ].join('\n'),
+  }, { quoted: msg });
+}
+
+/** .ownerhelp / .adminhelp — full command list including owner-only commands */
+export async function handleOwnerHelp(sock, msg) {
+  const jid = msg.key.remoteJid;
+  const p   = config.prefix;
+  await sock.sendMessage(jid, {
+    text: [
+      `👑 *${config.botName} — All Commands (Admin/Owner View)*`,
+      `Wubba Lubba Dub Dub M\*\*\*\F\*\*\*`,
+      ``,
+      `*🖼️ Sticker*`,
+      `› \`${p}sticker [pack] [author]\` — Image/GIF → sticker`,
+      `› \`${p}toimg\` — Sticker → image`,
+      ``,
+      `*🎨 Generators*`,
+      `› \`certificate <name> <role>\` — Generate a mock certificate`,
+      `› \`qr <text>\` — Generate a scannable QR code`,
+      `› \`${p}thinksay [-s] "think" "say"\` — Think vs Say meme image/sticker`,
+      `› \`gay [-s]\` — Apply rainbow filter over an image/sticker`,
+      ``,
+      `*📋 General*`,
+      `› \`${p}ping\` — Check latency & uptime`,
+      `› \`${p}alive\` — Check if bot is online`,
+      `› \`${p}info\` — Bot stats`,
+      `› \`${p}stats\` — Usage statistics & user logs`,
+      `› \`${p}donate\` — Support the creator (UPI)`,
+      `› \`${p}help\` — Public menu`,
+      `› \`${p}ownerhelp\` / \`${p}adminhelp\` — Full owner menu`,
+      ``,
+      `*👥 Group (admins only)*`,
+      `› \`${p}tagall [msg]\` — Mention all members`,
+      `› \`${p}kick @user\` — Kick a member`,
+      `› \`${p}promote @user\` — Make admin`,
+      `› \`${p}demote @user\` — Remove admin`,
+      `› \`${p}ginfo\` — Show group details`,
+      ``,
+      `*🎮 Fun*`,
+      `› \`${p}calc <expr>\` — Calculator (e.g. \`(5+3)*2\`)`,
+      `› \`${p}flip\` — Flip a coin`,
+      `› \`${p}roll [NdM]\` — Roll dice (e.g. \`2d20\`, \`d100\`)`,
+      `› \`${p}remind <time> <msg>\` — Set a reminder (e.g. \`10m\`, \`1h30m\`)`,
+      `› \`${p}8ball <question>\` — Ask the Magic 8-Ball`,
+      `› \`${p}choose opt1 | opt2 | ...\` — Pick a random option`,
+      ``,
+      `*🌐 Utility*`,
+      `› \`${p}weather [city]\` — Current weather`,
+      `› \`${p}translate <lang> <text>\` — Translate text (alias: \`${p}tr\`)`,
+      `› \`${p}langs\` — List supported language codes (alias: \`${p}languages\`)`,
+      `› \`${p}define <word>\` — Dictionary definition`,
+      `› \`${p}tts <text>\` — Text to voice note`,
+      ``,
+      `*🤖 AI (Groq)*`,
+      `› \`yo <prompt>\` or \`hey p <prompt>\` — Chat with AI`,
+      `› \`${p}ai <prompt>\` — Chat with AI`,
+      ``,
+      `*👑 Owner Controls*`,
       `› \`${p}mode\` — Toggle Private/Public`,
       `› \`${p}public\` — Switch to Public mode`,
       `› \`${p}private\` — Switch to Private mode`,
@@ -181,6 +241,32 @@ export async function handleHelp(sock, msg) {
       `_Prefix: \`${p}\`_`,
     ].join('\n'),
   }, { quoted: msg });
+}
+
+/** .donate — sends the custom UPI donation QR */
+export async function handleDonate(sock, msg) {
+  const { readFile } = await import('fs/promises');
+  const { join, dirname } = await import('path');
+  const { fileURLToPath } = await import('url');
+
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname  = dirname(__filename);
+  const qrPath     = join(__dirname, '../assets/donate-qr.png');
+  const jid        = msg.key.remoteJid;
+  const upiId      = config.upiId || 'prajwalpraveen2006@okaxis';
+
+  try {
+    const imgBuf = await readFile(qrPath);
+    await sock.sendMessage(jid, {
+      image: imgBuf,
+      caption: `*Support the Creator*\n\nThis is P's UPI QR code. You can support and motivate P by scanning this QR or transferring directly to:\n\n💳 *UPI ID:* \`${upiId}\`\n\nEvery penny/paise helps keep this bot alive and running!`,
+    }, { quoted: msg });
+  } catch (err) {
+    // Fallback if image fails to load
+    await sock.sendMessage(jid, {
+      text: `*Support the Creator*\n\nYou can support P via UPI:\n💳 *UPI ID:* \`${upiId}\`\n\nThanks !\n Goodbye`,
+    }, { quoted: msg });
+  }
 }
 
 /** .toimg — convert a quoted sticker back to PNG */

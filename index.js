@@ -30,7 +30,7 @@ import { isChatDisabled } from './utils/chatfilter.js';
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 import { handleStickerCommand } from './handlers/sticker.js';
-import { handlePing, handleAlive, handleInfo, handleStats, handleHelp, handleToImg, handlePublic, handlePrivate, handleMode, handleIgnore, handleUnignore, handleIgnoreList, handleDisable, handleEnable, handleDisabledList } from './handlers/general.js';
+import { handlePing, handleAlive, handleInfo, handleStats, handleHelp, handleOwnerHelp, handleDonate, handleToImg, handlePublic, handlePrivate, handleMode, handleIgnore, handleUnignore, handleIgnoreList, handleDisable, handleEnable, handleDisabledList } from './handlers/general.js';
 import { handleTagAll, handleKick, handlePromote, handleDemote } from './handlers/group.js';
 import { handleCertificate } from './handlers/certificate.js';
 import { handleQR } from './handlers/qr.js';
@@ -155,6 +155,9 @@ async function handleMessage(sock, msg) {
       case 'log':
       case 'logs':        await handleStats(sock, msg);               break;
       case 'help':        await handleHelp(sock, msg);                break;
+      case 'ownerhelp':
+      case 'adminhelp':   await handleOwnerHelp(sock, msg);           break;
+      case 'donate':      await handleDonate(sock, msg);              break;
       case 'sticker':     await handleStickerCommand(sock, msg);      break;
       case 'toimg':       await handleToImg(sock, msg);               break;
       case 'certify':
