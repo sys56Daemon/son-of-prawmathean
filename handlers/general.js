@@ -121,7 +121,8 @@ export async function handleHelp(sock, msg) {
   const p   = config.prefix;
   await sock.sendMessage(jid, {
     text: [
-      `🤖 *${config.botName} — Commands*`,
+      ` *${config.botName} — Commands*`,
+      `Wubba Lubba Dub Dub M\*\*\*\F\*\*\*`,
       ``,
       `*🖼️ Sticker*`,
       `› \`${p}sticker [pack] [author]\` — Image/GIF → sticker`,
@@ -166,7 +167,7 @@ export async function handleHelp(sock, msg) {
       `› \`yo <prompt>\` or \`hey p <prompt>\` — Chat with AI`,
       `› \`${p}ai <prompt>\` — Chat with AI`,
       ``,
-      `*👑 Owner*`,
+      `*👑 Owner* (only P can use this. So, no point in readin this)`,
       `› \`${p}mode\` — Toggle Private/Public`,
       `› \`${p}public\` — Switch to Public mode`,
       `› \`${p}private\` — Switch to Private mode`,
