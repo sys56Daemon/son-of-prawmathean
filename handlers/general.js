@@ -271,12 +271,12 @@ export async function handleDonate(sock, msg) {
     const imgBuf = await readFile(qrPath);
     await sock.sendMessage(jid, {
       image: imgBuf,
-      caption: `*Support the Creator*\n\nThis is P's UPI QR code. You can support and motivate P by scanning this QR or transferring directly to:\n\n💳 *UPI ID:* \`${upiId}\`\n\nEvery penny/paise helps keep this bot alive and running!`,
+      caption: `*Support P (developer)*\n\nThis is P's UPI QR code. You can support and motivate P by scanning this QR or transferring directly to:\n\n💳 *UPI ID:* \`${upiId}\`\n\nEvery contribution and support helps keep this bot alive and P motivated and healthy!`,
     }, { quoted: msg });
   } catch (err) {
     // Fallback if image fails to load
     await sock.sendMessage(jid, {
-      text: `*Support the Creator*\n\nYou can support P via UPI:\n💳 *UPI ID:* \`${upiId}\`\n\nThanks !\n Goodbye`,
+      text: `*Support (developer):*\n\nYou can support P via UPI:\n💳 *UPI ID:* \`${upiId}\`\n Every contribution and support keeps P motivated and healthy\n\nThanks !\n Goodbye.`,
     }, { quoted: msg });
   }
 }
