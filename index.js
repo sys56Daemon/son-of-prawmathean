@@ -61,8 +61,8 @@ async function handleMessage(sock, msg) {
   const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq', 'thinksay', 'think', 'gay', 'rainbow'];
   const isBareCmd = BARE_CMDS.some(cmd => new RegExp(`^${cmd}(\\s|$)`, 'i').test(text));
 
-  // Natural conversational triggers for Groq AI: "hey p" or "yo" (case insensitive)
-  const groqNaturalMatch = text.match(/^(?:hey\s+p|yo)(?:[\s,!?]+|$)(.*)/is);
+  // Natural conversational triggers for Groq AI: "hey rick" (or "hey ricke", "rick", "yo", "hey p" fallback)
+  const groqNaturalMatch = text.match(/^(?:hey\s+ricke?|rick|yo|hey\s+p)(?:[\s,!?]+|$)(.*)/is);
 
   // Check if this message is a reply to a message sent by the bot
   // Note: Ignore if msg.key.fromMe is true or if the quoted message was an automated Groq reply

@@ -26,19 +26,31 @@ function memMB() {
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
-/** .ping — measures round-trip latency */
+/** .ping — measures actual round-trip latency to WhatsApp servers */
 export async function handlePing(sock, msg) {
-  const jid   = msg.key.remoteJid;
+  const jid = msg.key.remoteJid;
+  const uptime = formatUptime(Date.now() - BOT_START_TIME);
+
+  // Send reaction
+  await sock.sendMessage(jid, { react: { text: '🗿', key: msg.key } }).catch(() => {});
+
   const start = Date.now();
-  // await sock.sendMessage(jid, { text: '🏓 Pong!' }, { quoted: msg });
-  const latency = Date.now() - start;
-  const uptime  = formatUptime(Date.now() - BOT_START_TIME);
-  await sock.sendMessage(jid, { react: { text: '🗿', key: msg.key } });
-  await sock.sendMessage(jid, {
-    text: `🏓 *Pong!*\n\n⚡ *Latency:* ${latency}ms\n⏱️ *Uptime:* ${uptime}`,
+  // Send the message and measure the time it takes for Baileys to transmit & acknowledge with WhatsApp
+  const sent = await sock.sendMessage(jid, {
+    text: `🏓 *Pong!*\n\n⚡ *Latency:* calculating...\n⏱️ *Uptime:* ${uptime}`,
   }, { quoted: msg });
 
+  const latency = Date.now() - start;
 
+  // Edit the message with the measured round-trip latency
+  if (sent?.key) {
+    await sock.sendMessage(jid, {
+      text: `🏓 *Pong!*\n\n⚡ *Latency:* ${latency}ms\n⏱️ *Uptime:* ${uptime}`,
+      edit: sent.key,
+    }).catch(async () => {
+      // If edit isn't supported in this context, send normal reply
+    });
+  }
 }
 
 /** .alive — simple status check */
@@ -165,7 +177,7 @@ export async function handleHelp(sock, msg) {
       `› \`${p}tts <text>\` — Text to voice note`,
       ``,
       `*🤖 AI (Groq)*`,
-      `› \`yo <prompt>\` or \`hey p <prompt>\` — Chat with AI`,
+      `› \`hey rick <prompt>\` or \`yo <prompt>\` — Chat with AI`,
       `› \`${p}ai <prompt>\` — Chat with AI`,
       ``,
       `_Prefix: \`${p}\`_`,
@@ -224,7 +236,7 @@ export async function handleOwnerHelp(sock, msg) {
       `› \`${p}tts <text>\` — Text to voice note`,
       ``,
       `*🤖 AI (Groq)*`,
-      `› \`yo <prompt>\` or \`hey p <prompt>\` — Chat with AI`,
+      `› \`hey rick <prompt>\` or \`yo <prompt>\` — Chat with AI`,
       `› \`${p}ai <prompt>\` — Chat with AI`,
       ``,
       `*👑 Owner Controls*`,
