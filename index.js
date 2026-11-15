@@ -40,7 +40,7 @@ import { handleInsta } from './handlers/instagram.js';
 import { handlePetpet } from './handlers/petpet.js';
 import { handleThinkSay } from './handlers/thinksay.js';
 import { handleGay } from './handlers/gay.js';
-import { handleGroq, isRecentGroqMsgId } from './handlers/groq.js';
+import { handleGroq, handleGroqStats, isRecentGroqMsgId } from './handlers/groq.js';
 import { trackRequest } from './utils/stats.js';
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -203,6 +203,8 @@ async function handleMessage(sock, msg) {
       // ── AI ─────────────────────────────────────────────────────────────────
       case 'ai':
       case 'groq':        await handleGroq(sock, msg, args);          break;
+      case 'groqstats':
+      case 'aistats':     await handleGroqStats(sock, msg);           break;
       // ── Fun: Petpet & Memes ────────────────────────────────────────────────
       case 'pet':
       case 'petpet':      await handlePetpet(sock, msg);              break;

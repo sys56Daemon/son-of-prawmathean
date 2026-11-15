@@ -1,7 +1,30 @@
 import { Groq } from 'groq-sdk';
+import { appendFile, mkdir } from 'fs/promises';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import config from '../config.js';
 import { isOwner } from '../utils/permissions.js';
 import { trackGroqRequest } from '../utils/stats.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = dirname(__filename);
+const LOG_FILE_PATH = join(__dirname, '../logs/groq.log');
+
+/**
+ * Append structured log entry to logs/groq.log
+ */
+async function logGroqTransaction(data) {
+  try {
+    await mkdir(join(__dirname, '../logs'), { recursive: true });
+    const line = JSON.stringify({
+      timestamp: new Date().toISOString(),
+      ...data,
+    }) + '\n';
+    await appendFile(LOG_FILE_PATH, line, 'utf-8');
+  } catch (err) {
+    console.error('[groq] Failed to write log:', err.message);
+  }
+}
 
 
 // Responds to be used when API hti the limit or something like that.
@@ -282,6 +305,30 @@ const chatHistories = new Map();
 const MAX_HISTORY = 10;
 const HISTORY_TTL_MS = 45 * 60 * 1000; // 45 minutes of inactivity resets memory
 
+// ── In-Memory Groq Diagnostics & Stats ────────────────────────────────────────
+const groqStats = {
+  totalRequests: 0,
+  successfulRequests: 0,
+  failedRequests: 0,
+  rateLimitHits: 0,
+  connectionErrors: 0,
+  lastError: null,
+  lastErrorAt: null,
+  lastSuccessAt: null,
+  // Token statistics
+  totalPromptTokens: 0,
+  totalCompletionTokens: 0,
+  totalTokens: 0,
+  lastPromptTokens: 0,
+  lastCompletionTokens: 0,
+  lastTotalTokens: 0,
+  avgTokensPerReq: 0,
+  lastQueueTime: null,
+  lastPromptTime: null,
+  lastCompletionTime: null,
+  lastTotalTime: null,
+};
+
 const RICK_SANCHEZ_SYSTEM_PROMPT = `You are Rick Sanchez from Dimension C-137, responding over WhatsApp.
 
 Persona:
@@ -348,9 +395,10 @@ export async function handleGroq(sock, msg, promptInput) {
   const jid = msg.key.remoteJid;
   const groq = getGroqClient();
 
+  // If API isn't configured
   if (!groq) {
     await sock.sendMessage(jid, {
-      text: '⚠️ *Groq API Key is not configured.*\n\nPlease set `GROQ_API_KEY` in your environment or set `groqApiKey` in `config.js`.',
+      text: '⚠️ *Groq API Key is not configured.*\n\nPlease set `GROQ_API_KEY` in your environment or set `groqApiKey` in `config.js`.\n Just forward this message to P.',
     }, { quoted: msg });
     return;
   }
@@ -372,7 +420,7 @@ export async function handleGroq(sock, msg, promptInput) {
 
   if (!prompt) {
     await sock.sendMessage(jid, {
-      text: '🤖 *Groq AI*\n\nUsage:\n› `hey rick <your message>`\n› `yo <your message>`\n› `.ai <your message>` or reply to a message',
+      text: '🤖 *Groq AI*\n\nUsage:\n› `hey rick <your message>`\n› `yo <your message>`\n› `.ai <your message>` or reply(mention) to a message',
     }, { quoted: msg });
     return;
   }
@@ -421,20 +469,62 @@ export async function handleGroq(sock, msg, promptInput) {
     ];
 
     // If stream is true, we accumulate chunks; in WhatsApp we send the completed response
-    const chatCompletion = await groq.chat.completions.create({
-      messages,
-      model: config.groqModel || 'qwen/qwen3.8-27b',
-      temperature: 0.75,
-      max_completion_tokens: 1024,
-      top_p: 0.95,
-      stream: true,
-      stop: null,
-    });
+    groqStats.totalRequests += 1;
 
-    let fullResponse = '';
-    for await (const chunk of chatCompletion) {
-      fullResponse += chunk.choices[0]?.delta?.content || '';
+    let chatCompletion;
+    try {
+      chatCompletion = await groq.chat.completions.create({
+        messages,
+        model: config.groqModel || 'qwen/qwen3.8-27b',
+        temperature: 0.75,
+        max_completion_tokens: 1024,
+        top_p: 0.95,
+        stream: false,
+        stop: null,
+      });
+    } catch (apiErr) {
+      groqStats.failedRequests += 1;
+      groqStats.lastError = apiErr?.message || String(apiErr);
+      groqStats.lastErrorAt = new Date().toISOString();
+
+      if (apiErr?.status === 429 || apiErr?.message?.toLowerCase().includes('rate limit')) {
+        groqStats.rateLimitHits += 1;
+      }
+      if (apiErr?.code === 'EAI_AGAIN' || apiErr?.name === 'APIConnectionError' || apiErr?.message?.includes('Connection error')) {
+        groqStats.connectionErrors += 1;
+      }
+
+      throw apiErr;
     }
+
+    let fullResponse = chatCompletion.choices[0]?.message?.content || '';
+
+    // Record usage tokens and timings if provided
+    if (chatCompletion.usage) {
+      const u = chatCompletion.usage;
+      const pTokens = u.prompt_tokens || 0;
+      const cTokens = u.completion_tokens || 0;
+      const tTokens = u.total_tokens || (pTokens + cTokens);
+
+      groqStats.totalPromptTokens += pTokens;
+      groqStats.totalCompletionTokens += cTokens;
+      groqStats.totalTokens += tTokens;
+
+      groqStats.lastPromptTokens = pTokens;
+      groqStats.lastCompletionTokens = cTokens;
+      groqStats.lastTotalTokens = tTokens;
+
+      groqStats.lastQueueTime = u.queue_time != null ? `${(u.queue_time * 1000).toFixed(0)}ms` : null;
+      groqStats.lastPromptTime = u.prompt_time != null ? `${(u.prompt_time * 1000).toFixed(0)}ms` : null;
+      groqStats.lastCompletionTime = u.completion_time != null ? `${(u.completion_time * 1000).toFixed(0)}ms` : null;
+      groqStats.lastTotalTime = u.total_time != null ? `${(u.total_time * 1000).toFixed(0)}ms` : null;
+    }
+
+    groqStats.successfulRequests += 1;
+    groqStats.avgTokensPerReq = groqStats.successfulRequests > 0
+      ? Math.round(groqStats.totalTokens / groqStats.successfulRequests)
+      : 0;
+    groqStats.lastSuccessAt = new Date().toISOString();
 
     fullResponse = fullResponse.trim();
     if (!fullResponse) {
@@ -460,19 +550,110 @@ export async function handleGroq(sock, msg, promptInput) {
       await sock.sendMessage(jid, { react: { text: '', key: msg.key } });
     } catch (_) {}
 
+    // Log successful transaction
+    logGroqTransaction({
+      status: 'success',
+      statusCode: 200,
+      user: {
+        jid: senderJid,
+        name: senderName || null,
+        isOwner: isP,
+      },
+      chatJid: jid,
+      model: config.groqModel || 'qwen/qwen3.8-27b',
+      prompt: prompt,
+      fullUserContent: userPromptContent,
+      response: fullResponse,
+      usage: chatCompletion.usage || null,
+    });
+
   } catch (err) {
     // Clear reaction on error as well
     try {
       await sock.sendMessage(jid, { react: { text: '', key: msg.key } });
     } catch (_) {}
 
-    console.error('[groq] Error:', err.message);
+    const isRateLimit = err?.status === 429 || err?.message?.toLowerCase().includes('rate limit');
+    const isConnErr = err?.name === 'APIConnectionError' || err?.message?.toLowerCase().includes('connection error') || err?.code === 'EAI_AGAIN';
+
+    console.error(`[groq] Error (${err?.status || err?.name || 'unknown'}):`, err.message);
+
+    // Identify sender for error logging
+    const senderJid = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
+    const senderName = msg.pushName?.trim() || '';
+
+    // Log failed transaction with full error details
+    logGroqTransaction({
+      status: 'failed',
+      statusCode: err?.status || null,
+      errorCode: err?.code || err?.name || 'Error',
+      errorMessage: err?.message || String(err),
+      isRateLimit,
+      isConnectionError: isConnErr,
+      user: {
+        jid: senderJid,
+        name: senderName || null,
+      },
+      chatJid: jid,
+      model: config.groqModel || 'qwen/qwen3.8-27b',
+      prompt: prompt,
+      errorHeaders: err?.headers || null,
+    });
+
+    let notice = '';
+    if (isRateLimit) {
+      notice = `\n_(⚠️ Groq API Rate Limit: ${err.message})_`;
+    } else if (isConnErr) {
+      notice = `\n_(⚠️ Network DNS/Connection issue reaching api.groq.com)_`;
+    }
 
     await sock.sendMessage(jid, {
-      // text: `Ugh. Multiverse link glitched: ${err.message}`,
-
-      
-	    text: `Ugh. Multiverse link glitched.\n${get_random_response()}` 
+      text: `Ugh. Multiverse link glitched.\n${get_random_response()}${notice}` 
     }, { quoted: msg });
   }
+}
+
+/** .groqstats — Owner-only diagnostic command for Groq API */
+export async function handleGroqStats(sock, msg) {
+  const sender = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : msg.key.remoteJid);
+  if (!isOwner(sender, sock)) return;
+
+  const jid = msg.key.remoteJid;
+  const activeChats = chatHistories.size;
+  let totalContextMessages = 0;
+  for (const hist of chatHistories.values()) {
+    totalContextMessages += hist.length;
+  }
+
+  const successRate = groqStats.totalRequests > 0
+    ? ((groqStats.successfulRequests / groqStats.totalRequests) * 100).toFixed(1)
+    : '0.0';
+
+  const text = [
+    `*Groq AI API Stats *`,
+    ``,
+    `- *Model:* \`${config.groqModel || 'qwen/qwen3.8-27b'}\``,
+    `- *Total API Calls:* ${groqStats.totalRequests}`,
+    `- *Successful:* ${groqStats.successfulRequests} (${successRate}%)`,
+    `- *Failed:* ${groqStats.failedRequests}`,
+    `- *Rate Limit (429) Hits:* ${groqStats.rateLimitHits}`,
+    `- *Connection / DNS Errors:* ${groqStats.connectionErrors}`,
+    ``,
+    `*Token Usage:*`,
+    `› Total Tokens: *${groqStats.totalTokens.toLocaleString()}* (Prompt: ${groqStats.totalPromptTokens.toLocaleString()} | Completion: ${groqStats.totalCompletionTokens.toLocaleString()})`,
+    `› Last Request: *${groqStats.lastTotalTokens}* tokens (Prompt: ${groqStats.lastPromptTokens} | Output: ${groqStats.lastCompletionTokens})`,
+    `› Avg Tokens/Req: ~*${groqStats.avgTokensPerReq}*`,
+    ...(groqStats.lastTotalTime ? [`› Last Groq Inference Latency: ${groqStats.lastTotalTime}`] : []),
+    ``,
+    ` *Active Memory Context:*`,
+    `› Active Chat Sessions: ${activeChats}`,
+    `› Total Context Messages Stored: ${totalContextMessages}`,
+    ``,
+    `*Timestamps & Details:*`,
+    `› Last Success: ${groqStats.lastSuccessAt || 'None'}`,
+    `› Last Error: ${groqStats.lastErrorAt || 'None'}`,
+    ...(groqStats.lastError ? [`› Error Msg: \`${groqStats.lastError.slice(0, 150)}\``] : []),
+  ].join('\n');
+
+  await sock.sendMessage(jid, { text }, { quoted: msg });
 }

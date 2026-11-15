@@ -240,6 +240,7 @@ export async function handleOwnerHelp(sock, msg) {
       `› \`${p}ai <prompt>\` — Chat with AI`,
       ``,
       `*👑 Owner Controls*`,
+      `› \`${p}groqstats\` — AI / Groq API diagnostic statistics`,
       `› \`${p}mode\` — Toggle Private/Public`,
       `› \`${p}public\` — Switch to Public mode`,
       `› \`${p}private\` — Switch to Private mode`,
