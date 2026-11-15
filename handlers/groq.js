@@ -600,15 +600,8 @@ export async function handleGroq(sock, msg, promptInput) {
       errorHeaders: err?.headers || null,
     });
 
-    let notice = '';
-    if (isRateLimit) {
-      notice = `\n_(⚠️ Groq API Rate Limit: ${err.message})_`;
-    } else if (isConnErr) {
-      notice = `\n_(⚠️ Network DNS/Connection issue reaching api.groq.com)_`;
-    }
-
     await sock.sendMessage(jid, {
-      text: `Ugh. Multiverse link glitched.\n${get_random_response()}${notice}` 
+      text: `Ugh. Multiverse link glitched.\n${get_random_response()}` 
     }, { quoted: msg });
   }
 }
