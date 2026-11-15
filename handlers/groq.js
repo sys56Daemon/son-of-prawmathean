@@ -1,5 +1,5 @@
 import { Groq } from 'groq-sdk';
-import { appendFile, mkdir } from 'fs/promises';
+import { appendFile, readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import config from '../config.js';
@@ -8,19 +8,41 @@ import { trackGroqRequest } from '../utils/stats.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
-const LOG_FILE_PATH = join(__dirname, '../logs/groq.log');
+const LOGS_DIR = join(__dirname, '../logs');
+const LOG_FILE_PATH = join(LOGS_DIR, 'groq.log');
+const JSON_FILE_PATH = join(LOGS_DIR, 'groq.json');
 
 /**
- * Append structured log entry to logs/groq.log
+ * Append structured log entry to logs/groq.log and keep logs/groq.json synced
  */
 async function logGroqTransaction(data) {
   try {
-    await mkdir(join(__dirname, '../logs'), { recursive: true });
-    const line = JSON.stringify({
+    await mkdir(LOGS_DIR, { recursive: true });
+    const record = {
       timestamp: new Date().toISOString(),
       ...data,
-    }) + '\n';
+    };
+
+    // 1. Append to groq.log (JSONL)
+    const line = JSON.stringify(record) + '\n';
     await appendFile(LOG_FILE_PATH, line, 'utf-8');
+
+    // 2. Update groq.json (JSON Array)
+    try {
+      let list = [];
+      try {
+        const existing = await readFile(JSON_FILE_PATH, 'utf-8');
+        list = JSON.parse(existing);
+        if (!Array.isArray(list)) list = [];
+      } catch (_) {
+        list = [];
+      }
+      list.push(record);
+      await writeFile(JSON_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+    } catch (jErr) {
+      console.error('[groq] Failed to update groq.json:', jErr.message);
+    }
+
   } catch (err) {
     console.error('[groq] Failed to write log:', err.message);
   }
