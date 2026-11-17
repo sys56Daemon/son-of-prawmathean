@@ -91,19 +91,28 @@ async function extractImageBuffer(sock, msg) {
     return rawBuffer;
   }
 
-  // If sticker (WebP), convert to PNG via ffmpeg first
-  const id = randomUUID();
-  const inputPath = join(tmpdir(), `gay_in_${id}.webp`);
-  const outputPath = join(tmpdir(), `gay_out_${id}.png`);
-
+  // If sticker (WebP):
+  // 1. Try decoding with @napi-rs/canvas loadImage directly (handles static and animated WebP!)
   try {
-    await writeFile(inputPath, rawBuffer);
-    await execFileAsync('ffmpeg', ['-y', '-i', inputPath, outputPath]);
-    const pngBuf = await readFile(outputPath);
-    return pngBuf;
-  } finally {
-    await unlink(inputPath).catch(() => {});
-    await unlink(outputPath).catch(() => {});
+    const img = await loadImage(rawBuffer);
+    const canvas = createCanvas(img.width, img.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    return canvas.toBuffer('image/png');
+  } catch (canvasErr) {
+    // 2. Fallback to ffmpeg if canvas decode fails
+    const id = randomUUID();
+    const inputPath = join(tmpdir(), `gay_in_${id}.webp`);
+    const outputPath = join(tmpdir(), `gay_out_${id}.png`);
+
+    try {
+      await writeFile(inputPath, rawBuffer);
+      await execFileAsync('ffmpeg', ['-y', '-i', inputPath, outputPath]);
+      return await readFile(outputPath);
+    } finally {
+      await unlink(inputPath).catch(() => {});
+      await unlink(outputPath).catch(() => {});
+    }
   }
 }
 

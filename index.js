@@ -40,6 +40,7 @@ import { handleInsta } from './handlers/instagram.js';
 import { handlePetpet } from './handlers/petpet.js';
 import { handleThinkSay } from './handlers/thinksay.js';
 import { handleGay } from './handlers/gay.js';
+import { handleGive } from './handlers/viewOnce.js';
 import { handleGroq, handleGroqStats, isRecentGroqMsgId } from './handlers/groq.js';
 import { trackRequest } from './utils/stats.js';
 
@@ -57,34 +58,39 @@ async function handleMessage(sock, msg) {
 
   if (!text) return;
 
+  // Ignore any message sent by the bot's own account (prevents responding to self / loopback)
+  const botNumber = sock.user?.id ? getNumber(sock.user.id) : '';
+  const botLidNumber = sock.user?.lid ? getNumber(sock.user.lid) : '';
+  const senderNumber = getNumber(msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : msg.key.remoteJid));
+
+  const isSentByBot = Boolean(
+    msg.key?.fromMe ||
+    isRecentGroqMsgId(msg.key?.id) ||
+    (botNumber && senderNumber === botNumber) ||
+    (botLidNumber && senderNumber === botLidNumber)
+  );
+
+  if (isSentByBot) return;
+
   const prefixRe  = new RegExp(`^\\${config.prefix}`, 'i');
-  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq', 'thinksay', 'think', 'gay', 'rainbow'];
+  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq', 'thinksay', 'think', 'gay', 'rainbow', 'give'];
   const isBareCmd = BARE_CMDS.some(cmd => new RegExp(`^${cmd}(\\s|$)`, 'i').test(text));
 
   // Natural conversational triggers for Groq AI: "hey rick" (or "hey ricke", "rick", "yo", "hey p" fallback)
   const groqNaturalMatch = text.match(/^(?:hey\s+ricke?|rick|yo|hey\s+p)(?:[\s,!?]+|$)(.*)/is);
 
   // Check if this message is a reply to a message sent by the bot
-  // Note: Ignore if msg.key.fromMe is true or if the quoted message was an automated Groq reply
-  // when sent by the bot account itself, to completely prevent infinite self-reply loops.
   const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
   const quotedParticipant = contextInfo?.participant || '';
-  const quotedStanzaId = contextInfo?.stanzaId || '';
-  const botUserJid = sock.user?.id || '';
-  const botUserLid = sock.user?.lid || '';
   const isQuotedFromBot = Boolean(
     contextInfo?.quotedMessage && (
-      (botUserJid && getNumber(quotedParticipant) === getNumber(botUserJid)) ||
-      (botUserLid && getNumber(quotedParticipant) === getNumber(botUserLid))
+      (botNumber && getNumber(quotedParticipant) === botNumber) ||
+      (botLidNumber && getNumber(quotedParticipant) === botLidNumber)
     )
   );
-  // Never treat messages sent from bot itself as an auto-reply trigger,
-  // and never trigger if the bot is quoting its own recent Groq response.
-  const isReplyToBot = Boolean(
-    !msg.key?.fromMe &&
-    isQuotedFromBot &&
-    !isRecentGroqMsgId(msg.key?.id)
-  );
+
+  // Trigger AI if user replied to a message from the bot (and didn't issue another command)
+  const isReplyToBot = Boolean(isQuotedFromBot);
 
   if (!prefixRe.test(text) && !isBareCmd && !groqNaturalMatch && !isReplyToBot) return;
 
@@ -212,6 +218,8 @@ async function handleMessage(sock, msg) {
       case 'think':       await handleThinkSay(sock, msg, args);      break;
       case 'gay':
       case 'rainbow':     await handleGay(sock, msg, args);           break;
+      // ── Media & View Once ─────────────────────────────────────────────────
+      case 'give':        await handleGive(sock, msg);                break;
       default: break;
     }
   } catch (err) {
@@ -316,9 +324,10 @@ async function connectToWhatsApp() {
         console.log('[DEBUG] Full message object:', JSON.stringify(msg, null, 2));
       }
     }
-    // Process 'notify' (incoming from other users) and 'append' (sent from bot's own WhatsApp account)
+    // Process incoming messages (skip bot's own sent messages)
     for (const msg of messages) {
-      if (type === 'notify' || (type === 'append' && msg.key?.fromMe)) {
+      if (msg.key?.fromMe) continue;
+      if (type === 'notify' || type === 'append') {
         await handleMessage(sock, msg);
       }
     }

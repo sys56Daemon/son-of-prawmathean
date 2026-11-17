@@ -136,9 +136,10 @@ export async function handleHelp(sock, msg) {
       ` *${config.botName} — Commands*`,
       `Wubba Lubba Dub Dub M\*\*\*\F\*\*\*`,
       ``,
-      `*🖼️ Sticker*`,
+      `*🖼️ Sticker & Media*`,
       `› \`${p}sticker [pack] [author]\` — Image/GIF → sticker`,
       `› \`${p}toimg\` — Sticker → image`,
+      `› \`${p}give\` — Reply to view-once media to extract it`,
       ``,
       `*🎨 Generators*`,
       `› \`certificate <name> <role>\` — Generate a mock certificate`,
@@ -194,9 +195,10 @@ export async function handleOwnerHelp(sock, msg) {
       `👑 *${config.botName} — All Commands (Admin/Owner View)*`,
       `Wubba Lubba Dub Dub M\*\*\*\F\*\*\*`,
       ``,
-      `*🖼️ Sticker*`,
+      `*🖼️ Sticker & Media*`,
       `› \`${p}sticker [pack] [author]\` — Image/GIF → sticker`,
       `› \`${p}toimg\` — Sticker → image`,
+      `› \`${p}give\` — Reply to view-once media to extract it`,
       ``,
       `*🎨 Generators*`,
       `› \`certificate <name> <role>\` — Generate a mock certificate`,
@@ -328,10 +330,19 @@ export async function handleToImg(sock, msg) {
   try {
     const webpBuf = await downloadMediaMessage(quotedMsg, 'buffer', {}, { logger });
 
-    // Jimp v1 cannot decode WebP — use ffmpeg (already a dependency for stickers)
-    await writeFile(inputPath, webpBuf);
-    await execFileAsync('ffmpeg', ['-y', '-i', inputPath, outputPath]);
-    const pngBuf = await readFile(outputPath);
+    let pngBuf;
+    try {
+      const { createCanvas, loadImage } = await import('@napi-rs/canvas');
+      const img = await loadImage(webpBuf);
+      const canvas = createCanvas(img.width, img.height);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      pngBuf = canvas.toBuffer('image/png');
+    } catch (_) {
+      await writeFile(inputPath, webpBuf);
+      await execFileAsync('ffmpeg', ['-y', '-i', inputPath, outputPath]);
+      pngBuf = await readFile(outputPath);
+    }
 
     await sock.sendMessage(jid, {
       image:   pngBuf,
