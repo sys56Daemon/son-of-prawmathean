@@ -3,6 +3,7 @@ import { getStats } from '../utils/stats.js';
 import { getNumber } from '../utils/permissions.js';
 import { addToBlocklist, removeFromBlocklist, getBlocklist, getBlocklistDetails } from '../utils/blocklist.js';
 import { disableChat, enableChat, getDisabledChats, isChatDisabled } from '../utils/chatfilter.js';
+import { disableCommand, enableCommand, getDisabledCommands, isCommandDisabled } from '../utils/commandControl.js';
 
 const BOT_START_TIME = Date.now();
 
@@ -148,6 +149,7 @@ export async function handleHelp(sock, msg) {
       `› \`gay [-s]\` — Apply rainbow filter over an image/sticker`,
       ``,
       `*📋 General*`,
+      `› \`${p}whoami\` or \`${p}jid\` — Show your JID & chat JID`,
       `› \`${p}ping\` — Check latency & uptime`,
       `› \`${p}alive\` — Check if bot is online`,
       `› \`${p}info\` — Bot stats`,
@@ -207,6 +209,7 @@ export async function handleOwnerHelp(sock, msg) {
       `› \`gay [-s]\` — Apply rainbow filter over an image/sticker`,
       ``,
       `*📋 General*`,
+      `› \`${p}whoami\` or \`${p}jid\` — Show your JID & chat JID`,
       `› \`${p}ping\` — Check latency & uptime`,
       `› \`${p}alive\` — Check if bot is online`,
       `› \`${p}info\` — Bot stats`,
@@ -242,6 +245,9 @@ export async function handleOwnerHelp(sock, msg) {
       `› \`${p}ai <prompt>\` — Chat with AI`,
       ``,
       `*👑 Owner Controls*`,
+      `› \`${p}disablecmd <cmd>\` — Globally disable a command/feature (e.g. ai, give, sticker)`,
+      `› \`${p}enablecmd <cmd>\` — Globally re-enable a command/feature`,
+      `› \`${p}disabledcmds\` — List all globally disabled commands`,
       `› \`${p}groqstats\` — AI / Groq API diagnostic statistics`,
       `› \`${p}mode\` — Toggle Private/Public`,
       `› \`${p}public\` — Switch to Public mode`,
@@ -652,5 +658,134 @@ export async function handleDisabledList(sock, msg) {
 
   await sock.sendMessage(jid, {
     text: `🔕 *Disabled Chats (${list.length}):*\n\n${formatted}\n\n_Use \`.enable <jid>\` to re-enable a specific chat._`,
+  }, { quoted: msg });
+}
+
+/** .whoami / .jid — display user JID, chat JID, and quoted user JID */
+export async function handleWhoAmI(sock, msg) {
+  const jid = msg.key.remoteJid;
+  const senderJid = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
+  const isGroup = jid.endsWith('@g.us');
+  const senderName = msg.pushName || 'Unknown';
+  const senderPhone = getNumber(senderJid);
+
+  // Check if user quoted another message to get their JID
+  const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+  const quotedParticipant = contextInfo?.participant;
+  let quotedPhone = '';
+  if (quotedParticipant) {
+    quotedPhone = getNumber(quotedParticipant);
+  }
+
+  let groupName = '';
+  if (isGroup) {
+    try {
+      const gmeta = await sock.groupMetadata(jid);
+      groupName = gmeta.subject || '';
+    } catch {
+      // ignore
+    }
+  }
+
+  const lines = [
+    `🆔 *WhatsApp Identity Info*`,
+    ``,
+    `👤 *Sender:* ${senderName}`,
+    `📱 *Sender Phone:* ${senderPhone ? `+${senderPhone}` : 'N/A'}`,
+    `🔑 *Sender JID:* \`${senderJid}\``,
+    ``,
+    isGroup ? `👥 *Group Name:* ${groupName || 'Group'}` : `💬 *Chat Type:* Direct Message (DM)`,
+    `🏷️ *Current Chat JID:* \`${jid}\``,
+  ];
+
+  if (quotedParticipant) {
+    lines.push(
+      ``,
+      `💬 *Quoted Message Sender:*`,
+      `📱 *Phone:* ${quotedPhone ? `+${quotedPhone}` : 'N/A'}`,
+      `🔑 *JID:* \`${quotedParticipant}\``
+    );
+  }
+
+  lines.push(``, `_Tip: Use this JID to configure private contexts or manage permissions._`);
+
+  await sock.sendMessage(jid, { text: lines.join('\n') }, { quoted: msg });
+}
+
+/** .disablecmd <cmd> — globally disable a command or feature (Owner only) */
+export async function handleDisableCommand(sock, msg, args) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender, sock)) return;
+
+  const jid = msg.key.remoteJid;
+  const cmd = (args[0] || '').trim();
+
+  if (!cmd) {
+    await sock.sendMessage(jid, {
+      text: '❌ Please specify a command to disable.\nExample: `.disablecmd ai` or `.disablecmd give`',
+    }, { quoted: msg });
+    return;
+  }
+
+  const disabled = disableCommand(cmd);
+  if (disabled) {
+    await sock.sendMessage(jid, {
+      text: `🛑 *Command Disabled Globally:* \`${disabled}\`\nThe bot will no longer respond to or execute this command/feature anywhere.`,
+    }, { quoted: msg });
+  } else {
+    await sock.sendMessage(jid, {
+      text: `ℹ️ Command \`${cmd}\` is already disabled.`,
+    }, { quoted: msg });
+  }
+}
+
+/** .enablecmd <cmd> — globally re-enable a command or feature (Owner only) */
+export async function handleEnableCommand(sock, msg, args) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender, sock)) return;
+
+  const jid = msg.key.remoteJid;
+  const cmd = (args[0] || '').trim();
+
+  if (!cmd) {
+    await sock.sendMessage(jid, {
+      text: '❌ Please specify a command to enable.\nExample: `.enablecmd ai` or `.enablecmd give`',
+    }, { quoted: msg });
+    return;
+  }
+
+  const enabled = enableCommand(cmd);
+  if (enabled) {
+    await sock.sendMessage(jid, {
+      text: `✅ *Command Enabled Globally:* \`${enabled}\`\nThis feature is now active again.`,
+    }, { quoted: msg });
+  } else {
+    await sock.sendMessage(jid, {
+      text: `ℹ️ Command \`${cmd}\` wasn't disabled.`,
+    }, { quoted: msg });
+  }
+}
+
+/** .cmdlist / .disabledcmds — list all globally disabled commands (Owner only) */
+export async function handleDisabledCommandsList(sock, msg) {
+  const { isOwner } = await import('../utils/permissions.js');
+  const sender = msg.key.participant ?? msg.key.remoteJid;
+  if (!isOwner(sender, sock)) return;
+
+  const jid = msg.key.remoteJid;
+  const list = getDisabledCommands();
+
+  if (list.length === 0) {
+    await sock.sendMessage(jid, {
+      text: '📋 *No commands are currently disabled.* All features are active.',
+    }, { quoted: msg });
+    return;
+  }
+
+  const formatted = list.map((cmd, i) => `${i + 1}. \`${cmd}\``).join('\n');
+  await sock.sendMessage(jid, {
+    text: `🛑 *Globally Disabled Commands (${list.length}):*\n\n${formatted}\n\n_Use \`.enablecmd <cmd>\` to re-enable._`,
   }, { quoted: msg });
 }

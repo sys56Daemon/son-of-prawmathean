@@ -32,7 +32,7 @@ import { initReminders } from './utils/reminderStore.js';
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 import { handleStickerCommand } from './handlers/sticker.js';
-import { handlePing, handleAlive, handleInfo, handleStats, handleHelp, handleOwnerHelp, handleDonate, handleToImg, handlePublic, handlePrivate, handleMode, handleIgnore, handleUnignore, handleIgnoreList, handleDisable, handleEnable, handleDisabledList } from './handlers/general.js';
+import { handlePing, handleAlive, handleInfo, handleStats, handleHelp, handleOwnerHelp, handleDonate, handleToImg, handlePublic, handlePrivate, handleMode, handleIgnore, handleUnignore, handleIgnoreList, handleDisable, handleEnable, handleDisabledList, handleWhoAmI, handleDisableCommand, handleEnableCommand, handleDisabledCommandsList } from './handlers/general.js';
 import { handleTagAll, handleKick, handlePromote, handleDemote } from './handlers/group.js';
 import { handleCertificate } from './handlers/certificate.js';
 import { handleQR } from './handlers/qr.js';
@@ -45,6 +45,7 @@ import { handleGay } from './handlers/gay.js';
 import { handleGive } from './handlers/viewOnce.js';
 import { handleGroq, handleGroqStats, isRecentGroqMsgId } from './handlers/groq.js';
 import { trackRequest } from './utils/stats.js';
+import { isCommandDisabled } from './utils/commandControl.js';
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,9 @@ async function handleMessage(sock, msg) {
 
   // If triggered via natural phrase "hey p ..." or "yo ..."
   if (groqNaturalMatch) {
+    if (isCommandDisabled('ai') && !isSenderOwner) {
+      return;
+    }
     trackRequest(sender, msg.pushName, 'groq_natural');
     const prompt = groqNaturalMatch[1]?.trim() || '';
     try {
@@ -135,6 +139,9 @@ async function handleMessage(sock, msg) {
 
   // If user replied to a message sent by the bot (and didn't issue an explicit command)
   if (!msg.key?.fromMe && isReplyToBot && !prefixRe.test(text) && !isBareCmd) {
+    if (isCommandDisabled('ai') && !isSenderOwner) {
+      return;
+    }
     trackRequest(sender, msg.pushName, 'groq_reply');
     try {
       await handleGroq(sock, msg, text);
@@ -149,6 +156,14 @@ async function handleMessage(sock, msg) {
   const parts   = body.trim().split(/\s+/);
   const command = parts[0].toLowerCase();
   const args    = parts.slice(1);
+
+  // Check if this command is globally disabled (only bot owners can bypass)
+  if (isCommandDisabled(command) && !isSenderOwner) {
+    await sock.sendMessage(jid, {
+      text: `⚠️ *Command Disabled:*\nThe \`${command}\` feature is temporarily disabled by the bot owner.`,
+    }, { quoted: msg });
+    return;
+  }
 
   // Track the command request
   trackRequest(sender, msg.pushName, command);
@@ -185,6 +200,17 @@ async function handleMessage(sock, msg) {
       case 'enable':      await handleEnable(sock, msg, args);        break;
       case 'disabledlist':
       case 'disabledchats': await handleDisabledList(sock, msg);       break;
+      case 'disablecmd':
+      case 'disablecommand': await handleDisableCommand(sock, msg, args); break;
+      case 'enablecmd':
+      case 'enablecommand':  await handleEnableCommand(sock, msg, args);  break;
+      case 'disabledcmds':
+      case 'cmdlist':
+      case 'commandslist':   await handleDisabledCommandsList(sock, msg); break;
+      case 'whoami':
+      case 'jid':
+      case 'myjid':
+      case 'id':             await handleWhoAmI(sock, msg);               break;
       case 'tagall':      await handleTagAll(sock, msg, args);        break;
       case 'kick':        await handleKick(sock, msg, args);          break;
       case 'promote':     await handlePromote(sock, msg, args);       break;
