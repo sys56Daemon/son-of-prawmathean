@@ -1,38 +1,5 @@
 // ── Fun & Utility Handlers ───────────────────────────────────────────────────
-
-// ─── In-memory reminder store ─────────────────────────────────────────────────
-// Map<timerId, { sock, jid, senderJid, text }>
-const reminders = new Map();
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Parse a human duration like "10m", "2h", "30s", "1h30m"
- * Returns milliseconds or null if invalid.
- */
-function parseDuration(str = '') {
-  str = str.trim().toLowerCase();
-  let ms = 0;
-  const pattern = /(\d+)\s*(h|m|s)/g;
-  let match;
-  while ((match = pattern.exec(str)) !== null) {
-    const val  = parseInt(match[1], 10);
-    const unit = match[2];
-    if (unit === 'h') ms += val * 3600_000;
-    if (unit === 'm') ms += val * 60_000;
-    if (unit === 's') ms += val * 1_000;
-  }
-  return ms > 0 ? ms : null;
-}
-
-/** Format ms → human-readable "2h 5m 30s" */
-function fmtDuration(ms) {
-  const totalSec = Math.round(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  return [h && `${h}h`, m && `${m}m`, s && `${s}s`].filter(Boolean).join(' ') || '0s';
-}
+import { addReminder, parseDuration, fmtDuration } from '../utils/reminderStore.js';
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -145,35 +112,21 @@ export async function handleRemind(sock, msg, args) {
 
   if (!ms) {
     await sock.sendMessage(jid, {
-      text: '❌ Invalid time format.\n_Use:_ `10m`, `1h`, `30s`, `1h30m`',
+      text: '❌ Invalid time format.\n_Use:_ `10m`, `1h`, `30s`, `1h30m`, `2d`',
     }, { quoted: msg });
     return;
   }
 
-  if (ms > 24 * 3600_000) {
-    await sock.sendMessage(jid, {
-      text: '❌ Maximum reminder time is *24 hours*.',
-    }, { quoted: msg });
-    return;
-  }
+  addReminder({
+    jid,
+    sender,
+    text: reminderText,
+    ms,
+  });
 
   await sock.sendMessage(jid, {
     text: `⏰ *Reminder set!*\n\nI'll remind you in *${fmtDuration(ms)}*:\n"${reminderText}"`,
   }, { quoted: msg });
-
-  const timerId = setTimeout(async () => {
-    reminders.delete(timerId);
-    try {
-      await sock.sendMessage(jid, {
-        text: `⏰ *Reminder!*\n\n@${sender.split('@')[0]}, you asked me to remind you:\n\n"${reminderText}"`,
-        mentions: [sender],
-      });
-    } catch (err) {
-      console.error('[remind] Failed to send reminder:', err.message);
-    }
-  }, ms);
-
-  reminders.set(timerId, { jid, sender, text: reminderText });
 }
 
 /**

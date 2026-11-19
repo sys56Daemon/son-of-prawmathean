@@ -51,11 +51,6 @@ export function isOwner(jid, sock = null) {
   if (config.ownerNumber && config.ownerNumber !== PLACEHOLDER && num === digits(config.ownerNumber)) return true;
   if (config.ownerLid && config.ownerLid !== PLACEHOLDER && num === digits(config.ownerLid)) return true;
 
-  // Hardcoded safety net for P & bot identities
-  if (num === '917736221227' || num === '280062402269304' || num === '919037972225' || num === '215925756285126') {
-    return true;
-  }
-
   return false;
 }
 

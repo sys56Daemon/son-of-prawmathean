@@ -1,0 +1,14 @@
+[
+  {
+    "id": "example-context",
+    "enabled": false,
+    "chatJid": "120363000000000000@g.us",
+    "senders": [
+      {
+        "pattern": "1234567890",
+        "tag": "Example Friend - Tech nerd"
+      }
+    ],
+    "systemContext": "Private Chat Context:\n- Example Friend (1234567890): Describe custom persona or instructions for this specific chat."
+  }
+]

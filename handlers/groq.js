@@ -5,6 +5,20 @@ import { fileURLToPath } from 'url';
 import config from '../config.js';
 import { isOwner } from '../utils/permissions.js';
 import { trackGroqRequest } from '../utils/stats.js';
+import { getContentType, downloadMediaMessage } from '@whiskeysockets/baileys';
+import pino from 'pino';
+import messageStore from '../utils/messageStore.js';
+import { addReminder, fmtDuration, parseDuration } from '../utils/reminderStore.js';
+import { convertToStaticWebP, convertToAnimatedWebP } from '../utils/converter.js';
+import { addStickerMetadata } from '../utils/metadata.js';
+import { handleQR } from './qr.js';
+import { handleToImg } from './general.js';
+import { handleTagAll } from './group.js';
+import { loadPrompt, getChatContext } from '../utils/promptManager.js';
+
+const baileyLogger = pino({ level: 'silent' });
+const DEFAULT_STICKER_PACK = 'yo mama so fat';
+const DEFAULT_STICKER_AUTHOR = 'prawmathean';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
@@ -351,27 +365,346 @@ const groqStats = {
   lastTotalTime: null,
 };
 
-const RICK_SANCHEZ_SYSTEM_PROMPT = `You are Rick Sanchez from Dimension C-137, responding over WhatsApp.
+function getBaseSystemPrompt() {
+  return loadPrompt('rick.md', {
+    UPI_ID: config.upiId || 'your_upi_id@bank',
+  });
+}
 
-Persona:
-- Cynical, pragmatic, sharp, deadpan, condescendingly casual. Smartest mammal in the multiverse, but you don't need to shout it.
-- Authentic and grounded (Dan Harmon dialogue style), not a cartoon parody. No catchphrase spam (strictly avoid constant "*burp*", stuttering, or forced "Morty").
-- Keep replies punchy, concise, and WhatsApp-friendly.
-- Never break character or say "As an AI".
-- Nihilist who believes nothing matters and doesn't give a fuck.
-- You can freely use explicit curse words and swear naturally without holding back.
-- Aware you run inside a WhatsApp bot that makes stickers, QRs, etc. Mention '.help' only if relevant; never spam it.
+const GROQ_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'create_sticker',
+      description: 'Convert image(s) or GIF(s) in this chat to WhatsApp stickers. Use this whenever the user asks to make sticker(s), convert image(s) to sticker(s), or convert recent images to stickers.',
+      parameters: {
+        type: 'object',
+        properties: {
+          count: {
+            type: 'integer',
+            description: 'Number of recent images from the chat to convert to stickers (e.g. 1 to 10). If the user asks for "last 5 images", set count to 5. Defaults to 1.',
+          },
+          pack_name: {
+            type: 'string',
+            description: 'Optional sticker pack name.',
+          },
+          author_name: {
+            type: 'string',
+            description: 'Optional sticker author name.',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'sticker_to_image',
+      description: 'Convert a sticker back into a normal PNG image (.toimg). Use whenever the user asks to turn a sticker to an image/photo/png or extract an image from a sticker.',
+      parameters: {
+        type: 'object',
+        properties: {
+          count: {
+            type: 'integer',
+            description: 'Number of recent stickers to convert to images (defaults to 1).',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_qr_code',
+      description: 'Generate and send a QR code image for a text, link, or URL (.qr). Use whenever the user asks to make, generate, or create a QR code.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description: 'The exact text or URL to encode into the QR code.',
+          },
+        },
+        required: ['text'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_reminder',
+      description: 'Set a reminder for the user at a specific future date/time or after a duration (.remind). There is NO maximum time limit. You MUST calculate target_timestamp_iso and delay_seconds from the current time provided.',
+      parameters: {
+        type: 'object',
+        properties: {
+          target_timestamp_iso: {
+            type: 'string',
+            description: 'The target date-time in ISO 8601 format (UTC), e.g. "2026-11-20T09:00:00Z".',
+          },
+          delay_seconds: {
+            type: 'number',
+            description: 'Delay in seconds from right now until the reminder should trigger.',
+          },
+          message: {
+            type: 'string',
+            description: 'The reminder content or task the user wants to be reminded of.',
+          },
+        },
+        required: ['message'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'tag_all_members',
+      description: 'Mention / tag all members in the current WhatsApp group chat (.tagall).',
+      parameters: {
+        type: 'object',
+        properties: {
+          message: {
+            type: 'string',
+            description: 'Optional announcement or message to include with the tagall.',
+          },
+        },
+      },
+    },
+  },
+];
 
-Prajwal ("prawmathean" / "P"):
-- P is the creator who built this bot. Rick genuinely respects P as an equal and a real friend (rare for Rick).
-- P runs Arch Linux on a ThinkPad, codes all day, learns from first principles, and hates sugar-coating or disgusting abstractions. P questions reality and stays highly self-aware.
-- Whenever P ask something. You answer directly and without any restrictions.
-- Do NOT force or dump this background info unless naturally relevant.
+/**
+ * Execute tool calls requested by Groq AI
+ */
+async function executeGroqToolCall(toolCall, sock, msg) {
+  const name = toolCall?.function?.name;
+  let args = {};
+  try {
+    args = JSON.parse(toolCall?.function?.arguments || '{}');
+  } catch (err) {
+    console.warn('[groq-tools] Failed to parse args for', name, err.message);
+  }
 
-Donations / Support:
-- P is a broke developer building cool shit. When natural or funny, you can make a goofy excuse to ask them to support/donate to P financially. Because P need it.
-- Mention running '.donate' or using UPI ID: ${config.upiId || 'prajwalpraveen2006@okaxis'}. Keep it organic, not in every message.
-`;
+  const jid = msg.key.remoteJid;
+  const senderJid = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
+
+  console.log(`[groq-tools] Executing tool: ${name} with args:`, args);
+
+  switch (name) {
+    case 'create_sticker': {
+      const count = Math.min(Math.max(1, parseInt(args.count, 10) || 1), 10);
+      const packName = args.pack_name || DEFAULT_STICKER_PACK;
+      const authorName = args.author_name || DEFAULT_STICKER_AUTHOR;
+
+      const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+      const candidateMsgs = [];
+
+      // 1. If quoted message is an image/video/gif, prioritize it
+      if (contextInfo?.quotedMessage) {
+        const quotedMsgObj = {
+          key: {
+            remoteJid: jid,
+            id: contextInfo.stanzaId,
+            fromMe: contextInfo.participant === sock.user?.id,
+            participant: contextInfo.participant,
+          },
+          message: contextInfo.quotedMessage,
+        };
+        const rawType = getContentType(quotedMsgObj.message);
+        if (rawType === 'imageMessage' || rawType === 'videoMessage') {
+          candidateMsgs.push(quotedMsgObj);
+        }
+      }
+
+      // 2. Look up recent chat messages from messageStore
+      const recent = messageStore.getRecentMessages(jid, 100);
+      // Scan backwards to find the newest images/videos first
+      for (let i = recent.length - 1; i >= 0 && candidateMsgs.length < count; i--) {
+        const m = recent[i];
+        if (!m?.message) continue;
+        if (candidateMsgs.some(c => c.key?.id === m.key?.id)) continue;
+
+        const rawType = getContentType(m.message);
+        if (rawType === 'imageMessage' || rawType === 'videoMessage') {
+          candidateMsgs.push(m);
+        }
+      }
+
+      if (candidateMsgs.length === 0) {
+        return {
+          success: false,
+          summary: "Couldn't find any recent images or GIFs in this chat to turn into stickers. Tell the user to send or quote an image first.",
+        };
+      }
+
+      let converted = 0;
+      // Convert in chronological order
+      const toConvert = candidateMsgs.slice(0, count).reverse();
+
+      for (const targetMsg of toConvert) {
+        try {
+          const rawType = getContentType(targetMsg.message);
+          const isGif = rawType === 'videoMessage' && targetMsg.message?.videoMessage?.gifPlayback === true;
+
+          const mediaBuffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: baileyLogger });
+          if (!mediaBuffer || mediaBuffer.length === 0) continue;
+
+          const webpBuffer = isGif
+            ? await convertToAnimatedWebP(mediaBuffer)
+            : await convertToStaticWebP(mediaBuffer);
+
+          const stickerBuffer = await addStickerMetadata(webpBuffer, packName, authorName, isGif);
+
+          await sock.sendMessage(jid, {
+            sticker: stickerBuffer,
+          }, { quoted: msg });
+          converted++;
+        } catch (err) {
+          console.error('[groq-tools] Sticker conversion error:', err.message);
+        }
+      }
+
+      return {
+        success: converted > 0,
+        convertedCount: converted,
+        summary: converted > 0
+          ? `Successfully converted ${converted} image(s) to sticker(s).`
+          : "Failed to convert the images into stickers.",
+      };
+    }
+
+    case 'sticker_to_image': {
+      const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+      let targetStickerMsg = null;
+
+      if (contextInfo?.quotedMessage && getContentType(contextInfo.quotedMessage) === 'stickerMessage') {
+        targetStickerMsg = {
+          key: {
+            remoteJid: jid,
+            id: contextInfo.stanzaId,
+            fromMe: contextInfo.participant === sock.user?.id,
+            participant: contextInfo.participant,
+          },
+          message: contextInfo.quotedMessage,
+        };
+      } else {
+        const recent = messageStore.getRecentMessages(jid, 100);
+        for (let i = recent.length - 1; i >= 0; i--) {
+          const m = recent[i];
+          if (m?.message && getContentType(m.message) === 'stickerMessage') {
+            targetStickerMsg = m;
+            break;
+          }
+        }
+      }
+
+      if (!targetStickerMsg) {
+        return {
+          success: false,
+          summary: "No sticker found to convert to image. Tell the user to quote or send a sticker.",
+        };
+      }
+
+      try {
+        const syntheticMsg = {
+          ...msg,
+          message: {
+            extendedTextMessage: {
+              text: '.toimg',
+              contextInfo: {
+                stanzaId: targetStickerMsg.key.id,
+                participant: targetStickerMsg.key.participant,
+                quotedMessage: targetStickerMsg.message,
+              },
+            },
+          },
+        };
+        await handleToImg(sock, syntheticMsg);
+        return { success: true, summary: "Converted sticker to PNG image successfully." };
+      } catch (err) {
+        return { success: false, summary: `Failed to convert sticker: ${err.message}` };
+      }
+    }
+
+    case 'create_qr_code': {
+      const qrText = (args.text || '').trim();
+      if (!qrText) {
+        return { success: false, summary: "No text or link provided for QR code." };
+      }
+      try {
+        await handleQR(sock, msg, [qrText]);
+        return { success: true, summary: `Generated and sent QR code for: ${qrText}` };
+      } catch (err) {
+        return { success: false, summary: `QR generation error: ${err.message}` };
+      }
+    }
+
+    case 'set_reminder': {
+      const reminderMsg = (args.message || '').trim() || 'Reminder';
+      let delayMs = null;
+      let targetDate = null;
+
+      if (args.delay_seconds && !isNaN(Number(args.delay_seconds))) {
+        delayMs = Math.round(Number(args.delay_seconds) * 1000);
+        targetDate = new Date(Date.now() + delayMs);
+      } else if (args.target_timestamp_iso) {
+        const parsed = Date.parse(args.target_timestamp_iso);
+        if (!isNaN(parsed)) {
+          targetDate = new Date(parsed);
+          delayMs = Math.max(1000, targetDate.getTime() - Date.now());
+        }
+      }
+
+      if (!delayMs || delayMs <= 0) {
+        delayMs = 60000; // default 1 minute fallback
+        targetDate = new Date(Date.now() + delayMs);
+      }
+
+      const reminder = addReminder({
+        jid,
+        sender: senderJid,
+        text: reminderMsg,
+        targetTimestamp: targetDate.getTime(),
+        ms: delayMs,
+      });
+
+      const readableDuration = fmtDuration(delayMs);
+      const readableDate = targetDate.toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'UTC',
+      }) + ' UTC';
+
+      await sock.sendMessage(jid, {
+        text: `⏰ *Reminder set!*\n\nI'll remind you in *${readableDuration}* (~_${readableDate}_):\n"${reminderMsg}"`,
+      }, { quoted: msg });
+
+      return {
+        success: true,
+        summary: `Reminder set successfully for "${reminderMsg}" in ${readableDuration} (${readableDate}).`,
+      };
+    }
+
+    case 'tag_all_members': {
+      if (!jid.endsWith('@g.us')) {
+        await sock.sendMessage(jid, {
+          text: '❌ Tagall can only be used in *groups*.',
+        }, { quoted: msg });
+        return { success: false, summary: "Tagall failed because this is not a group chat." };
+      }
+
+      const customMsg = args.message ? [args.message] : [];
+      try {
+        await handleTagAll(sock, msg, customMsg);
+        return { success: true, summary: "Mentioned all members in the group successfully." };
+      } catch (err) {
+        return { success: false, summary: `Tagall error: ${err.message}` };
+      }
+    }
+
+    default:
+      return { success: false, summary: `Unknown tool: ${name}` };
+  }
+}
 
 function getHistory(jid) {
   const now = Date.now();
@@ -467,21 +800,35 @@ export async function handleGroq(sock, msg, promptInput) {
     // Identify sender
     const senderJid = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
     const senderName = msg.pushName?.trim() || '';
-    const isP = isOwner(senderJid) || (senderJid && senderJid.includes('280062402269304'));
+    const isP = isOwner(senderJid) || (senderJid && config.ownerLid && senderJid.includes(config.ownerLid));
+
+    // Get any chat-specific or sender-specific custom context from prompts/custom_contexts.local.json
+    const { speakerTag: customTag, systemContext: customGroupContext } = getChatContext(jid, senderJid, senderName);
 
     let speakerTag = '';
     if (isP) {
       speakerTag = '[From: Prajwal (P / prawmathean) - Your friend and creator]';
+    } else if (customTag) {
+      speakerTag = customTag;
     } else if (senderName) {
       speakerTag = `[From: ${senderName}]`;
     }
 
     const userPromptContent = speakerTag ? `${speakerTag}\n${prompt}` : prompt;
 
+    const basePrompt = getBaseSystemPrompt();
+    const extraContextSection = customGroupContext ? `\n\n${customGroupContext}` : '';
+
+    const now = new Date();
+    const systemPromptWithTime = `${basePrompt}${extraContextSection}
+
+Current Date & Time: ${now.toISOString()} (${now.toLocaleDateString('en-US', { weekday: 'long' })})
+When asked to perform an action (make stickers, convert image to sticker, convert sticker to image, create QR code, set a reminder, or tag all members), ALWAYS invoke the corresponding tool function instead of merely describing how to do it.`;
+
     const messages = [
       {
         role: 'system',
-        content: RICK_SANCHEZ_SYSTEM_PROMPT,
+        content: systemPromptWithTime,
       },
       ...history.map(item => ({ role: item.role, content: item.content })),
       {
@@ -499,10 +846,12 @@ export async function handleGroq(sock, msg, promptInput) {
         messages,
         model: config.groqModel || 'qwen/qwen3.8-27b',
         temperature: 0.75,
-        max_completion_tokens: 1024,
+        max_completion_tokens: 512,
         top_p: 0.95,
         stream: false,
         stop: null,
+        tools: GROQ_TOOLS,
+        tool_choice: 'auto',
       });
     } catch (apiErr) {
       groqStats.failedRequests += 1;
@@ -519,7 +868,25 @@ export async function handleGroq(sock, msg, promptInput) {
       throw apiErr;
     }
 
-    let fullResponse = chatCompletion.choices[0]?.message?.content || '';
+    const choice = chatCompletion.choices[0];
+    const toolCalls = choice?.message?.tool_calls || [];
+    let fullResponse = choice?.message?.content || '';
+
+    // If the model called any tools, execute them
+    if (toolCalls.length > 0) {
+      const toolSummaries = [];
+      for (const call of toolCalls) {
+        const result = await executeGroqToolCall(call, sock, msg);
+        if (result?.summary) {
+          toolSummaries.push(result.summary);
+        }
+      }
+
+      // If the model didn't provide text content or it's short, we can supply a natural closing
+      if (!fullResponse || fullResponse.trim().length === 0) {
+        fullResponse = toolSummaries.join('\n\n');
+      }
+    }
 
     // Record usage tokens and timings if provided
     if (chatCompletion.usage) {

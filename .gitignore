@@ -11,6 +11,8 @@ auth_info_baileys/
 .env
 .env.*
 !.env.example
+*.local.json
+prompts/*.local.json
 cookies.txt          # yt-dlp Instagram cookies — NEVER commit
 
 # ── Generated files ───────────────────────────────────────────────────────────

@@ -27,6 +27,8 @@ console.error = function (...args) {
 
 import { isAllowed, getNumber, isUnconfigured, isOwner } from './utils/permissions.js';
 import { isChatDisabled } from './utils/chatfilter.js';
+import messageStore from './utils/messageStore.js';
+import { initReminders } from './utils/reminderStore.js';
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 import { handleStickerCommand } from './handlers/sticker.js';
@@ -252,7 +254,12 @@ async function connectToWhatsApp() {
     printQRInTerminal: false,
     browser: ['waBot', 'Chrome', '125.0.0'],
     syncFullHistory: false,
+    getMessage: async (key) => {
+      return messageStore.loadMessage(key.remoteJid, key.id)?.message;
+    },
   });
+
+  messageStore.bind(sock.ev);
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -308,6 +315,7 @@ async function connectToWhatsApp() {
     } else if (connection === 'open') {
       console.log(`\n✅ Connected as +${getNumber(sock.user.id)}`);
       console.log(`📋 Commands: ${config.prefix}ping | ${config.prefix}help | ${config.prefix}sticker | ${config.prefix}toimg | certificate | qr | ${config.prefix}tagall | ${config.prefix}kick\n`);
+      initReminders(sock);
       try {
         await rm('./qr.png', { force: true });
       } catch {}

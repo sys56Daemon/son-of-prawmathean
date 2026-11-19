@@ -268,7 +268,14 @@ export async function handleDonate(sock, msg) {
   const __dirname  = dirname(__filename);
   const qrPath     = join(__dirname, '../assets/donate-qr.png');
   const jid        = msg.key.remoteJid;
-  const upiId      = config.upiId || 'prajwalpraveen2006@okaxis';
+  const upiId      = config.upiId;
+
+  if (!upiId) {
+    await sock.sendMessage(jid, {
+      text: '*Support (developer):*\n\nDonations are currently not configured. Thank you for your support!',
+    }, { quoted: msg });
+    return;
+  }
 
   try {
     const imgBuf = await readFile(qrPath);
@@ -445,7 +452,7 @@ export async function handleIgnore(sock, msg, args) {
 
   if (!target) {
     await sock.sendMessage(jid, {
-      text: '❌ Please specify a phone number, mention a user, or reply to their message.\nExample: `.ignore +919037972225`',
+      text: '❌ Please specify a phone number, mention a user, or reply to their message.\nExample: `.ignore +1234567890`',
     }, { quoted: msg });
     return;
   }
@@ -497,7 +504,7 @@ export async function handleUnignore(sock, msg, args) {
 
   if (!target) {
     await sock.sendMessage(jid, {
-      text: '❌ Please specify a phone number, mention a user, or reply to their message.\nExample: `.unignore +919037972225`',
+      text: '❌ Please specify a phone number, mention a user, or reply to their message.\nExample: `.unignore +1234567890`',
     }, { quoted: msg });
     return;
   }
