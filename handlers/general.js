@@ -661,55 +661,127 @@ export async function handleDisabledList(sock, msg) {
   }, { quoted: msg });
 }
 
-/** .whoami / .jid — display user JID, chat JID, and quoted user JID */
-export async function handleWhoAmI(sock, msg) {
+/** .whoami / .jid [@user|number] — display user JID, LID, chat JID, or target person's identity */
+export async function handleWhoAmI(sock, msg, args = []) {
   const jid = msg.key.remoteJid;
   const senderJid = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
   const isGroup = jid.endsWith('@g.us');
   const senderName = msg.pushName || 'Unknown';
   const senderPhone = getNumber(senderJid);
 
-  // Check if user quoted another message to get their JID
   const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+  const mentioned = contextInfo?.mentionedJid || [];
   const quotedParticipant = contextInfo?.participant;
-  let quotedPhone = '';
-  if (quotedParticipant) {
-    quotedPhone = getNumber(quotedParticipant);
-  }
 
-  let groupName = '';
+  let groupMetadata = null;
+  let groupParticipants = [];
   if (isGroup) {
     try {
-      const gmeta = await sock.groupMetadata(jid);
-      groupName = gmeta.subject || '';
+      groupMetadata = await sock.groupMetadata(jid);
+      groupParticipants = groupMetadata?.participants || [];
     } catch {
       // ignore
     }
   }
 
+  // Find info helper for any JID/LID/Phone
+  function findParticipantInfo(target) {
+    if (!target) return null;
+    const cleanDigits = target.replace(/\D/g, '');
+    let matched = groupParticipants.find(p => {
+      if (p.id === target || p.lid === target || p.jid === target) return true;
+      if (cleanDigits && (getNumber(p.id) === cleanDigits || (p.lid && getNumber(p.lid) === cleanDigits) || (p.jid && getNumber(p.jid) === cleanDigits))) {
+        return true;
+      }
+      return false;
+    });
+
+    const phone = matched?.id && !matched.id.endsWith('@lid') ? getNumber(matched.id) : (cleanDigits.length >= 10 && cleanDigits.length <= 13 ? cleanDigits : '');
+    const lid = matched?.lid ? getNumber(matched.lid) : (target.endsWith('@lid') ? cleanDigits : '');
+    const name = matched?.name || matched?.notify || '';
+
+    return {
+      phone,
+      lid,
+      name,
+      raw: target,
+    };
+  }
+
+  // Check if user specifically requested info for a tagged / specified user: .whoami @user
+  let targetUser = '';
+  if (args.length > 0) {
+    const rawArg = args.join(' ').trim();
+    const digitsOnly = rawArg.replace(/[^\d+]/g, '');
+    if (digitsOnly) targetUser = digitsOnly;
+  }
+  if (!targetUser && mentioned.length > 0) {
+    targetUser = mentioned[0];
+  }
+
+  // If specific target user queried via .whoami @user or .jid @user
+  if (targetUser) {
+    const info = findParticipantInfo(targetUser);
+    const lines = [
+      `🆔 *WhatsApp Contact Identity*`,
+      ``,
+      info?.name ? `👤 *Name:* ${info.name}` : null,
+      `📱 *Phone Number:* ${info?.phone ? `+${info.phone}` : (targetUser.replace(/\D/g, '').length <= 13 ? `+${targetUser.replace(/\D/g, '')}` : 'N/A')}`,
+      `🔑 *Phone JID:* \`${info?.phone ? `${info.phone}@s.whatsapp.net` : targetUser}\``,
+      info?.lid ? `🔒 *LID (Linked Identity):* \`${info.lid}@lid\`` : null,
+      info?.lid ? `🔢 *LID Number:* \`${info.lid}\`` : null,
+      ``,
+      `_For .env: add \`${info?.phone || ''}${info?.lid ? `,${info.lid}` : ''}\` to ALLOWED_NUMBERS_`,
+    ].filter(Boolean);
+
+    await sock.sendMessage(jid, { text: lines.join('\n') }, { quoted: msg });
+    return;
+  }
+
+  // Default: self + chat + quoted user (if any)
+  const selfInfo = findParticipantInfo(senderJid);
+  const selfPhone = selfInfo?.phone || senderPhone;
+  const selfLid = selfInfo?.lid || (senderJid.endsWith('@lid') ? getNumber(senderJid) : '');
+
   const lines = [
     `🆔 *WhatsApp Identity Info*`,
     ``,
-    `👤 *Sender:* ${senderName}`,
-    `📱 *Sender Phone:* ${senderPhone ? `+${senderPhone}` : 'N/A'}`,
-    `🔑 *Sender JID:* \`${senderJid}\``,
+    `👤 *Your Name:* ${senderName}`,
+    `📱 *Your Phone:* ${selfPhone ? `+${selfPhone}` : 'N/A'}`,
+    `🔑 *Your JID:* \`${senderJid}\``,
+    selfLid ? `🔒 *Your LID:* \`${selfLid}@lid\`` : null,
+    selfLid ? `🔢 *Your LID Number:* \`${selfLid}\`` : null,
     ``,
-    isGroup ? `👥 *Group Name:* ${groupName || 'Group'}` : `💬 *Chat Type:* Direct Message (DM)`,
+    isGroup ? `👥 *Group Name:* ${groupMetadata?.subject || 'Group'}` : `💬 *Chat Type:* Direct Message (DM)`,
     `🏷️ *Current Chat JID:* \`${jid}\``,
-  ];
+  ].filter(Boolean);
 
   if (quotedParticipant) {
+    const quotedInfo = findParticipantInfo(quotedParticipant);
+    const qPhone = quotedInfo?.phone || getNumber(quotedParticipant);
+    const qLid = quotedInfo?.lid || (quotedParticipant.endsWith('@lid') ? getNumber(quotedParticipant) : '');
+
     lines.push(
       ``,
-      `💬 *Quoted Message Sender:*`,
-      `📱 *Phone:* ${quotedPhone ? `+${quotedPhone}` : 'N/A'}`,
-      `🔑 *JID:* \`${quotedParticipant}\``
+      `💬 *Quoted Contact:*`,
+      quotedInfo?.name ? `👤 *Name:* ${quotedInfo.name}` : null,
+      `📱 *Phone:* ${qPhone ? `+${qPhone}` : 'N/A'}`,
+      `🔑 *JID:* \`${quotedParticipant}\``,
+      qLid ? `🔒 *LID:* \`${qLid}@lid\`` : null,
+      qLid ? `🔢 *LID Number:* \`${qLid}\`` : null,
+      `_Tip for .env: add \`${qPhone || ''}${qLid ? `,${qLid}` : ''}\` to ALLOWED_NUMBERS_`
     );
   }
 
-  lines.push(``, `_Tip: Use this JID to configure private contexts or manage permissions._`);
+  lines.push(
+    ``,
+    `_Usage:_`,
+    `› \`.whoami\` — View your own JID & chat JID`,
+    `› \`.whoami @user\` — View tagged user's JID & LID`,
+    `› Reply to a message with \`.whoami\` — View quoted user's JID & LID`
+  );
 
-  await sock.sendMessage(jid, { text: lines.join('\n') }, { quoted: msg });
+  await sock.sendMessage(jid, { text: lines.filter(Boolean).join('\n') }, { quoted: msg });
 }
 
 /** .disablecmd <cmd> — globally disable a command or feature (Owner only) */

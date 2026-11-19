@@ -25,7 +25,7 @@ console.error = function (...args) {
   originalConsoleError.apply(console, args);
 };
 
-import { isAllowed, getNumber, isUnconfigured, isOwner } from './utils/permissions.js';
+import { isAllowed, getNumber, isUnconfigured, isOwner, registerLidPhone } from './utils/permissions.js';
 import { isChatDisabled } from './utils/chatfilter.js';
 import messageStore from './utils/messageStore.js';
 import { initReminders } from './utils/reminderStore.js';
@@ -100,6 +100,19 @@ async function handleMessage(sock, msg) {
   // Resolve sender JID
   const jid    = msg.key.remoteJid;
   const sender  = msg.key.participant ?? (msg.key.fromMe ? sock.user?.id : jid);
+
+  // If in a group and sender is using an LID, attempt to learn the phone number from groupMetadata
+  if (jid.endsWith('@g.us') && sender?.endsWith('@lid')) {
+    try {
+      const gmeta = await sock.groupMetadata(jid);
+      const participant = gmeta?.participants?.find(p => p.lid === sender || p.id === sender);
+      if (participant?.id && !participant.id.endsWith('@lid')) {
+        registerLidPhone(getNumber(participant.id), getNumber(sender));
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   // ── Permission check ─────────────────────────────────────────────────────
   // If message is fromMe, or sender is in ownerNumbers / matches bot/owner LID, grant top-priority owner access.
@@ -210,7 +223,7 @@ async function handleMessage(sock, msg) {
       case 'whoami':
       case 'jid':
       case 'myjid':
-      case 'id':             await handleWhoAmI(sock, msg);               break;
+      case 'id':             await handleWhoAmI(sock, msg, args);         break;
       case 'tagall':      await handleTagAll(sock, msg, args);        break;
       case 'kick':        await handleKick(sock, msg, args);          break;
       case 'promote':     await handlePromote(sock, msg, args);       break;

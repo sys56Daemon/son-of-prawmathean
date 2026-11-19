@@ -26,7 +26,37 @@ export function getNumber(jid = '') {
   return digits(bare);
 }
 
-// ─── Permission checks ────────────────────────────────────────────────────────
+// Cache mapping LID -> Phone Number and Phone Number -> LID
+const lidPhoneMap = new Map();
+
+/**
+ * Register a known mapping between a phone number and an LID.
+ * @param {string} phone
+ * @param {string} lid
+ */
+export function registerLidPhone(phone, lid) {
+  if (!phone || !lid) return;
+  const cleanPhone = digits(phone);
+  const cleanLid = digits(lid);
+  if (cleanPhone && cleanLid) {
+    lidPhoneMap.set(cleanLid, cleanPhone);
+    lidPhoneMap.set(cleanPhone, cleanLid);
+  }
+}
+
+/**
+ * Resolves a JID/LID to its phone number if known.
+ * @param {string} jid
+ * @returns {string}
+ */
+export function resolvePhoneNumber(jid = '') {
+  const num = getNumber(jid);
+  if (!num) return '';
+  if (jid.endsWith('@lid') || num.length >= 14) {
+    return lidPhoneMap.get(num) || num;
+  }
+  return num;
+}
 
 /** True if the JID belongs to any configured owner or the bot itself. */
 export function isOwner(jid, sock = null) {
@@ -62,7 +92,7 @@ export function isOwner(jid, sock = null) {
  *  1. If ownerNumber is still the placeholder → allow everyone + print a warning.
  *  2. If private: false → allow everyone.
  *  3. If sender is the owner → allow.
- *  4. If sender is in allowedNumbers → allow.
+ *  4. If sender (or resolved phone number) is in allowedNumbers → allow.
  *  5. Otherwise → deny (silently).
  */
 export function isAllowed(jid) {
@@ -76,9 +106,14 @@ export function isAllowed(jid) {
   if (!config.private) return true;
 
   const num = getNumber(jid);
+  const resolvedPhone = resolvePhoneNumber(jid);
+
   return config.allowedNumbers
     .filter(n => n !== PLACEHOLDER)
-    .some(n => digits(n) === num);
+    .some(n => {
+      const clean = digits(n);
+      return clean === num || (resolvedPhone && clean === resolvedPhone);
+    });
 }
 
 /** Returns true if the placeholder owner is still unconfigured. */
