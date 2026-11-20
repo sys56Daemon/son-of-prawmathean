@@ -1,273 +1,320 @@
-# waBot 🤖 — WhatsApp Bot
+# Rick Sanchez C-137 🤖 (waBot)
 
-A feature-rich private WhatsApp bot. Runs on Termux (Android) or any Linux machine — no browser required.
+A production-ready, feature-rich WhatsApp bot and AI assistant powered by [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys) and [Groq Cloud AI](https://groq.com/).
 
----
-
-## Commands
-
-### 🛠️ General
-| Command | Prefix needed? | Description |
-|---|---|---|
-| `.ping` | Yes | Check latency & uptime |
-| `.alive` | Yes | Check if bot is online |
-| `.info` | Yes | Bot stats (version, memory, uptime) |
-| `.help` | Yes | Show all commands |
-| `.mode` | Yes | Toggle public/private mode |
-
-### 🎨 Media
-| Command | Prefix needed? | Description |
-|---|---|---|
-| `.sticker [author] [pack]` | Optional | Convert image/GIF → sticker |
-| `.toimg` | Yes | Convert sticker → image |
-| `certificate <name> <role>` | Optional | Generate a goofy certificate |
-| `qr <text>` | Optional | Generate a QR code image |
-
-### 📸 Social Media
-| Command | Prefix needed? | Description |
-|---|---|---|
-| `insta <url>` | Optional | Download & send an Instagram post, reel, or IGTV video |
-
-> Supports public posts, reels, and IGTV. Videos are sent as playable WhatsApp videos with sound.
-
-### 👥 Group *(admin only)*
-| Command | Prefix needed? | Description |
-|---|---|---|
-| `.tagall [msg]` | Yes | Tag all group members |
-| `.kick @user` | Yes | Kick a member |
-| `.promote @user` | Yes | Make a user admin |
-| `.demote @user` | Yes | Remove a user's admin |
-
-### 🎲 Fun
-| Command | Prefix needed? | Description |
-|---|---|---|
-| `.flip` | Yes | Flip a coin |
-| `.roll [sides]` | Yes | Roll a dice |
-| `.8ball <question>` | Yes | Ask the magic 8-ball |
-| `.choose <a\|b\|c>` | Yes | Pick a random option |
-| `.remind <n> <s\|m\|h> <msg>` | Yes | Set a reminder |
-| `.calc <expression>` | Yes | Calculate a math expression |
-| `.pet` / `.petpet` | Optional | Reply to image or sticker → animated patting sticker |
-
-### 🌐 Utility
-| Command | Prefix needed? | Description |
-|---|---|---|
-| `.weather [location]` | Yes | Current weather (via wttr.in) |
-| `.translate <lang> <text>` | Yes | Translate text (auto-detect source) |
-| `.tr <lang> <text>` | Yes | Alias for `.translate` |
-| `.define <word>` | Yes | Dictionary definition |
-| `.tts <text>` | Yes | Text-to-speech voice note |
-| `.ginfo` | Yes | Show current group info |
-
-> `sticker`, `certificate`, and `qr` work both with and without the `.` prefix.
+Runs lightweight on Linux, Raspberry Pi, Arduino (Ventuno Q / Uno Q), Android (via Termux), VPS, or Docker — **no headless browser needed**.
 
 ---
 
-## Setup
+## 📑 Table of Contents
 
-### Termux (Android)
-
-Because Android's native environment lacks certain standard Linux libraries (`glibc`), you may encounter the "sticker bug" or build failures. 
-
-To fix this, you should run the bot inside an isolated Ubuntu environment on Termux. 
-
-👉 **[Click here for the full Termux / Android Setup Guide](TERMUX_SETUP.md)**
+- [✨ Features](#-features)
+- [🚀 Quick Start](#-quick-start)
+- [⚙️ Configuration](#️-configuration)
+- [📚 Documentation Index](#-documentation-index)
+- [🤖 Groq AI Assistant (Rick Sanchez)](#-groq-ai-assistant-rick-sanchez)
+- [📋 Complete Commands Catalog](#-complete-commands-catalog)
+- [🔒 Access Control & Privacy](#-access-control--privacy)
+- [🛠️ Global Feature Control](#️-global-feature-control)
+- [📸 Instagram Downloader](#-instagram-downloader)
+- [📂 Project Structure](#-project-structure)
+- [❓ Troubleshooting](#-troubleshooting)
 
 ---
 
-### Linux / VPS
+## ✨ Features
 
-#### 1. Install system dependencies
+- 🧠 **Autonomous Groq AI (Rick Sanchez C-137):** Unfiltered, sharp, Dan Harmon dialogue-style AI with memory, custom chat contexts, and WhatsApp function calling (auto-creates stickers, sets reminders, tags members, generates QR codes).
+- 🖼️ **Full Media Suite:** High-performance WebP stickers (static and animated), `.toimg` sticker extraction, view-once media unmasking (`.give`), and `.petpet` animated patting generators.
+- 🎨 **Meme & Generator Tools:** Mock certificates, QR codes, think-vs-say memes, and rainbow overlay filters.
+- 📸 **Instagram Reels & Video Downloader:** High-quality public reels and video downloads with full audio via `yt-dlp` and `ffmpeg`.
+- 👥 **Group Moderation:** Tag all members (`.tagall`), kick, promote, demote, and group inspection.
+- ⏰ **Natural Reminders:** Set reminders with human durations (`10m`, `1h30m`, `2d`).
+- 🔐 **Zero-Leak Modular Security:** All personal numbers, custom persona rules, API keys, and group memories are decoupled into gitignored files (`.env`, `prompts/*.local.json`).
+
+---
+
+## 🚀 Quick Start
+
+### 1. Prerequisites
+- **Node.js:** v20.x or higher
+- **System tools:** `ffmpeg` and `yt-dlp`
+
 ```bash
 # Debian / Ubuntu
-sudo apt install nodejs npm ffmpeg yt-dlp
+sudo apt update && sudo apt install -y nodejs npm ffmpeg yt-dlp
 
-# Arch
+# Arch Linux
 sudo pacman -S nodejs npm ffmpeg yt-dlp
+
+# macOS
+brew install node ffmpeg yt-dlp
 ```
 
-#### 2. Install Node dependencies
+> **Running on Android / Termux?** Follow the dedicated **[Termux Setup Guide](TERMUX_SETUP.md)**.
+
+### 2. Install Dependencies
 ```bash
+git clone https://github.com/your-username/son-of-prawmathean.git
+cd son-of-prawmathean
 npm install
 ```
 
-#### 3. Configure & start — same as Termux steps 3–5 above.
+### 3. Setup Environment Variables
+```bash
+cp .env.example .env
+```
+Open `.env` and enter your owner phone numbers and Groq API key. See **[Configuration Guide](docs/CONFIGURATION.md)** for details.
+
+### 4. Start the Bot
+```bash
+npm start
+```
+A WhatsApp QR code will be generated in your terminal (and saved as `qr.png`). Scan it using WhatsApp (**Linked Devices > Link a Device**).
 
 ---
 
-### Docker (Recommended for Linux/Windows/Cloud)
+## ⚙️ Configuration
 
-You can run the bot seamlessly on any machine using Docker. This avoids needing to install `node` or `ffmpeg` directly on your host system.
+The bot uses a lightweight, zero-dependency environment loader (`utils/env.js`).
 
-#### 1. Build the Docker image
-```bash
-docker build -t praw56/wabot:latest .
+Key `.env` variables:
+```ini
+BOT_PREFIX=.
+OWNER_NUMBERS=1234567890,9876543210
+GROQ_API_KEY=gsk_your_key_here
+GROQ_MODEL=qwen/qwen3.8-27b
+BOT_PRIVATE=false
+ALLOWED_NUMBERS=1234567890,9876543210,62848977895445
 ```
 
-#### 2. Push to Docker Hub (optional)
-```bash
-docker push praw56/wabot:latest
-```
+👉 **For full configuration details, read the [Configuration Guide](docs/CONFIGURATION.md).**
 
-#### 3. Run the container
-Run the following command on the target machine. This mounts the `auth_info` folder so your WhatsApp session persists between restarts.
+---
 
-```bash
-docker run -d \
-  --name my-wabot \
-  -v $(pwd)/auth_info:/app/auth_info \
-  --restart unless-stopped \
-  praw56/wabot:latest
-```
+## 📚 Documentation Index
 
-#### 4. View logs to scan the QR Code
-```bash
-docker logs -f my-wabot
+| Guide | Description |
+|---|---|
+| ⚙️ **[Configuration & Setup](docs/CONFIGURATION.md)** | Detailed instructions on `.env`, owner privileges, private mode, and WhatsApp LIDs. |
+| 🧠 **[Groq AI Prompts & Scoped Contexts](docs/PROMPTS_AND_AI.md)** | Customizing Rick's system prompt, function calling tools, and confidential group memories. |
+| 🛠️ **[Command & Feature Control](docs/COMMAND_CONTROL.md)** | How to disable/enable specific commands globally via WhatsApp or JSON files. |
+| 📱 **[Termux Setup Guide](TERMUX_SETUP.md)** | Step-by-step setup on Android via Termux and PRoot Ubuntu. |
+
+---
+
+## 🤖 Groq AI Assistant (Rick Sanchez)
+
+Rick runs natively inside your WhatsApp chats with persona memory and automatic tool execution.
+
+### How to talk to Rick:
+- `hey rick <your message>`
+- `yo <your message>`
+- `rick <your message>`
+- `.ai <your message>`
+- Reply directly to any message sent by the bot.
+
+### What Rick can do autonomously:
+- *"Rick, turn the last 2 photos in this chat into stickers"* → Calls `create_sticker`
+- *"Remind me in 30 minutes to take a break"* → Calls `set_reminder`
+- *"Make a QR code for my portfolio link"* → Calls `create_qr_code`
+- *"Tag everyone in this group"* → Calls `tag_all_members`
+
+### Personalize Rick for specific friends & groups:
+You can provide custom memory and personalized rules for friends in DMs and multiple groups by editing `prompts/custom_contexts.local.json`:
+- **Personal DMs & Multi-chat:** Target specific contacts by their Phone / LID using `"users": ["1234567890", "...@lid"]`.
+- **Group isolation:** Restrict private project contexts to an array of chats using `"chatJids": ["..."]`.
+- **Zero-leak guarantee:** Files matching `*.local.json` are gitignored and never pushed to GitHub.
+
+👉 **To customize Rick's personality, tools, or friend rules, check [AI Prompts & Custom Personas Guide](docs/PROMPTS_AND_AI.md).**
+
+---
+
+## 📋 Complete Commands Catalog
+
+### 🛠️ General & Identity
+| Command | Trigger | Description |
+|---|---|---|
+| `.whoami` / `.jid` | `.whoami` | View your phone number, JID, LID, and the current chat JID. |
+| `.whoami @user` | `.whoami @user` | View a tagged contact's Phone, JID, and LID (for `.env`). |
+| `.ping` | `.ping` | Check round-trip server latency and uptime. |
+| `.alive` | `.alive` | Check if bot instance is online. |
+| `.info` | `.info` | System memory usage, uptime, and version. |
+| `.stats` | `.stats` | Total requests, user leaderboard, and sticker count. |
+| `.donate` | `.donate` | Creator's UPI donation QR code. |
+| `.help` | `.help` | Public command menu. |
+
+### 🖼️ Media & View Once
+| Command | Trigger | Description |
+|---|---|---|
+| `.sticker` | `.sticker [pack] [author]` | Converts attached or replied image/GIF to sticker (auto-fits). |
+| `.toimg` | `.toimg` | Reply to a sticker to convert it back to a PNG image. |
+| `.give` | `.give` | Reply to any view-once photo, video, or audio to unmask and extract it. |
+| `.pet` / `.petpet` | `.pet` | Reply to an image/sticker to create an animated hand-patting sticker. |
+
+### 🎨 Generators & Memes
+| Command | Trigger | Description |
+|---|---|---|
+| `certificate` | `certificate <name> <role>` | Generates a mock framed certificate. |
+| `qr` | `qr <text or url>` | Generates a scannable QR code image. |
+| `.thinksay` | `.thinksay [-s] "thought" "speech"` | Creates a "What you think vs What you say" meme image or sticker. |
+| `.gay` | `.gay [-s]` | Applies an authentic rainbow pride overlay over an image or sticker. |
+
+### 📸 Social Media
+| Command | Trigger | Description |
+|---|---|---|
+| `insta` | `insta <url>` or `.insta <url>` | Downloads and forwards public Instagram Reels, posts, or IGTV videos. |
+
+### 👥 Group Moderation *(Admin Only)*
+| Command | Trigger | Description |
+|---|---|---|
+| `.tagall` | `.tagall [announcement]` | Mentions all members in the group chat. |
+| `.kick` | `.kick @user` | Kicks a member from the group. |
+| `.promote` | `.promote @user` | Promotes a member to group admin. |
+| `.demote` | `.demote @user` | Demotes an admin back to regular member. |
+| `.ginfo` | `.ginfo` | Displays group creation date, owner, participant count, and description. |
+
+### 🎮 Fun & Utility
+| Command | Trigger | Description |
+|---|---|---|
+| `.remind` | `.remind <time> <msg>` | Sets a reminder (e.g. `10m`, `1h30m`, `2d`). |
+| `.calc` | `.calc <math expression>` | Calculates a math expression (e.g. `(15*4)/2`). |
+| `.weather` | `.weather [city]` | Current weather report via wttr.in. |
+| `.translate` | `.translate <lang> <text>` | Translates text to target language (alias: `.tr`). |
+| `.langs` | `.langs` | Displays list of supported translation language codes. |
+| `.define` | `.define <word>` | Dictionary definition and pronunciation. |
+| `.tts` | `.tts <text>` | Converts text into an audio voice note. |
+| `.8ball` | `.8ball <question>` | Magic 8-ball fortune response. |
+| `.flip` | `.flip` | Flips a coin (Heads/Tails). |
+| `.roll` | `.roll [sides]` | Rolls a random dice (e.g. `d20`, `2d6`). |
+| `.choose` | `.choose <a \| b \| c>` | Randomly picks an option. |
+
+### 👑 Owner & Admin Controls
+| Command | Description |
+|---|---|
+| `.mode` | Toggles between Public and Private mode. |
+| `.public` | Switches bot to Public mode. |
+| `.private` | Switches bot to Private mode. |
+| `.disablecmd <cmd>` | Globally disables a command or AI feature (e.g. `.disablecmd ai`). |
+| `.enablecmd <cmd>` | Globally re-enables a command or feature. |
+| `.disabledcmds` | Lists all globally disabled commands. |
+| `.groqstats` | Detailed diagnostic stats for Groq AI API calls. |
+| `.disable` | Disables the bot inside the current chat. |
+| `.enable [jid]` | Re-enables the bot inside the current or target chat. |
+| `.disabledlist` | Lists all disabled chats. |
+| `.ignore <phone/@user>` | Blocks a user from using the bot. |
+| `.unignore <phone/@user>` | Unblocks a user. |
+| `.ignorelist` | Lists all blocked users. |
+
+---
+
+## 🔒 Access Control & Privacy
+
+In **Private Mode** (`BOT_PRIVATE=true` in `.env` or via `.private`), the bot silently ignores unauthorized users. Only:
+1. Numbers in `OWNER_NUMBERS`
+2. Numbers/LIDs in `ALLOWED_NUMBERS`
+
+can interact with the bot.
+
+To whitelist a friend, find their JID/LID using:
+```text
+.whoami @user
 ```
-Scan the QR code printed in the console. Press `Ctrl+C` to exit the logs view.
+and add both their phone number and LID to `ALLOWED_NUMBERS` in `.env`.
+
+👉 **Read [Configuration & Setup](docs/CONFIGURATION.md) for full details.**
+
+---
+
+## 🛠️ Global Feature Control
+
+Need to turn off view-once extraction (`.give`) or temporarily freeze AI requests due to rate limits?
+
+You can disable features immediately from WhatsApp:
+```text
+.disablecmd ai
+.disablecmd give
+```
+Or edit `data/disabled_commands.json`.
+
+👉 **Read [Command & Feature Control](docs/COMMAND_CONTROL.md) for full details.**
 
 ---
 
 ## 📸 Instagram Downloader
 
-Send any public Instagram post, reel, or IGTV video to the bot and it will download and forward the media directly in the chat.
+The bot uses `yt-dlp` to download Instagram reels and posts with high reliability.
 
-**Triggers:**
-```
-insta https://www.instagram.com/reel/XXXX/
-.insta https://www.instagram.com/p/XXXX/
-```
-
-### How it works
-
-The bot uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) under the hood — the most actively maintained media downloader available. It handles DASH stream merging (video + audio) via `ffmpeg`, so reels play with full audio in WhatsApp.
-
-### Avoiding rate limits
-
-Without authentication, Instagram rate-limits anonymous requests after a request or two. The bot avoids this automatically:
-
-**Auto-detected browser cookies (recommended):**
-The bot checks for an installed browser on startup (Brave → Chrome → Chromium → Firefox) and uses its session cookies. If you're logged into Instagram in that browser, requests go through as a real user — no rate limiting.
-
-**Manual `cookies.txt` (best for servers/Termux without a desktop browser):**
-1. Install the [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) extension in Chrome/Brave on your PC
-2. Go to `instagram.com` while logged in
-3. Click the extension → Export → save as `cookies.txt`
-4. Drop the file in the bot's root folder (next to `index.js`)
-
-The bot will automatically pick it up. `cookies.txt` is in `.gitignore` so it will never be committed.
-
-> **Note:** Only **public** posts are supported. Private accounts require the logged-in account to follow them.
+### Avoiding Instagram Rate Limits:
+1. **Desktop Browsers:** When run on a machine with Chrome/Brave/Firefox installed, the bot automatically borrows cookies from your logged-in browser session.
+2. **Headless Servers / Termux (`cookies.txt`):**
+   - Install the **Get cookies.txt LOCALLY** browser extension on your PC.
+   - Go to `instagram.com` while logged in.
+   - Export your cookies as `cookies.txt` and place it in the bot's root folder.
+   - `cookies.txt` is already gitignored.
 
 ---
 
-## 🔒 Private Mode — How It Works
-
-Private mode controls **who can send commands to the bot**.
-
-### Configuration (`config.js`)
-
-```js
-// Set to your phone number — this account is ALWAYS allowed regardless of other settings
-ownerNumber: '919876543210',
-
-// true  → Only numbers in allowedNumbers (+ owner) can use the bot
-// false → Anyone who messages the bot can use it (public bot)
-private: true,
-
-// List of numbers that can use the bot (when private: true)
-// Format: international number with NO + or spaces
-allowedNumbers: [
-  '919876543210',   // you (the owner)
-  '919999988888',   // a friend
-],
-```
-
-### How the allow-list check works
+## 📂 Project Structure
 
 ```
-Message received from sender
-         │
-         ▼
-  ownerNumber set?  ──No──▶  OPEN (anyone can use) + startup warning printed
-         │
-        Yes
-         │
-         ▼
-  private: false?  ──Yes──▶  OPEN (anyone can use)
-         │
-        No
-         │
-         ▼
-  sender == owner?  ──Yes──▶  ALLOWED ✅
-         │
-        No
-         │
-         ▼
-  sender in allowedNumbers?  ──Yes──▶  ALLOWED ✅
-         │
-        No
-         │
-         ▼
-      BLOCKED 🚫 (silently ignored)
-```
-
-### Adding someone to the allow-list
-
-Edit `config.js` → add their number to `allowedNumbers` → restart the bot:
-```js
-allowedNumbers: [
-  '919876543210',
-  '14155552671',    // ← new friend added
-],
-```
-
-### Switching to public mode
-
-Set `private: false` in `config.js`. Anyone who messages the bot can now use it.
-
-> **Important**: If `ownerNumber` is still set to `'YOUR_NUMBER_HERE'` (the default placeholder),
-> the bot automatically runs in **open/public mode** and prints a warning at startup.
-> Set your real number to activate private mode.
-
----
-
-## Project Structure
-```
-waBot/
-├── index.js              # Entry point + command router
-├── config.js             # ⚙️  Bot settings (edit this!)
-├── handlers/
-│   ├── sticker.js        # .sticker, .toimg
-│   ├── general.js        # .ping, .alive, .info, .help, .mode
-│   ├── group.js          # .tagall, .kick, .promote, .demote
-│   ├── fun.js            # .flip, .roll, .8ball, .choose, .remind, .calc
-│   ├── utility.js        # .weather, .translate, .define, .tts, .ginfo
-│   ├── instagram.js      # insta <url> — Instagram downloader
-│   ├── certificate.js    # certificate <name> <role>
-│   └── qr.js             # qr <text>
-├── utils/
-│   ├── converter.js      # WebP conversion (sharp + ffmpeg)
-│   ├── metadata.js       # WebP EXIF sticker pack metadata
-│   └── permissions.js    # Allow-list + admin checks
-├── auth_info/            # Auto-created — WA session (gitignored)
-├── cookies.txt           # Optional — Instagram cookies (gitignored)
-└── package.json
+son-of-prawmathean/
+├── .env.example               # Template environment configuration
+├── config.js                  # Central configuration loader
+├── index.js                   # Main Baileys connection & command router
+├── prompts/                   # Decoupled system prompts
+│   ├── rick.md                # Base character markdown prompt
+│   ├── custom_contexts.example.json # Public example template
+│   └── custom_contexts.local.json   # Private memories & rules (gitignored)
+├── docs/                      # Extended documentation
+│   ├── CONFIGURATION.md       # .env, LIDs, and permission setup
+│   ├── PROMPTS_AND_AI.md      # AI character, tools, and scoped contexts
+│   └── COMMAND_CONTROL.md     # Dynamic feature disabling
+├── handlers/                  # Modular command handlers
+│   ├── groq.js                # Groq AI & tool execution
+│   ├── viewOnce.js            # View-once extraction (.give)
+│   ├── general.js             # General utilities, identity & admin controls
+│   ├── sticker.js             # Sticker creation & conversion
+│   ├── group.js               # Group moderation (.tagall, .kick, etc.)
+│   ├── instagram.js           # Instagram reel & video downloader
+│   ├── certificate.js         # Certificate generator
+│   ├── thinksay.js            # Think vs Say meme generator
+│   ├── petpet.js              # Animated patting generator
+│   ├── qr.js                  # QR code generator
+│   ├── fun.js                 # Reminders, calculator, 8ball, coin flip
+│   └── utility.js             # Weather, TTS, translate, dictionary
+├── utils/                     # Helper modules
+│   ├── env.js                 # Zero-dependency .env loader
+│   ├── promptManager.js       # Dynamic prompt loader & context resolver
+│   ├── commandControl.js      # Global feature toggle manager
+│   ├── permissions.js         # Owner, LID, and allow-list verifier
+│   ├── reminderStore.js       # Reminder scheduling engine
+│   ├── messageStore.js        # Message caching for Baileys
+│   ├── blocklist.js           # User ignore/block management
+│   ├── chatfilter.js          # Chat-level disable filter
+│   ├── converter.js           # Image & animated WebP conversion
+│   ├── metadata.js            # Sticker EXIF metadata injection
+│   └── stats.js               # Usage analytics & leaderboard
+├── assets/                    # Static templates, fonts & donation QR
+├── data/                      # Local persistent JSON stores (gitignored)
+└── auth_info/                 # WhatsApp multi-file auth credentials (gitignored)
 ```
 
 ---
 
-## Troubleshooting
+## ❓ Troubleshooting
 
-| Problem | Fix |
+| Issue | Resolution |
 |---|---|
-| **Bot not responding at all** | Check `ownerNumber` in `config.js` is set correctly (no `+`, no spaces). If it's `YOUR_NUMBER_HERE`, the bot runs open and logs a warning. |
-| **Bot responds to owner but not others** | Add their number to `allowedNumbers` in `config.js` and restart |
-| **Instagram: rate limited / empty response** | Add a `cookies.txt` file — see [Instagram Downloader](#-instagram-downloader) section above |
-| **Instagram: private account error** | Only public posts are supported |
-| `yt-dlp: not found` | `pkg install yt-dlp` (Termux) or `sudo apt install yt-dlp` (Linux) |
-| `ffmpeg: not found` | `pkg install ffmpeg` (Termux) or `sudo apt install ffmpeg` (Linux) |
-| QR keeps refreshing | Scan faster; stable internet needed |
-| Sticker not in pack | Open WA sticker drawer → scroll to bottom |
-| Group commands fail | Make the bot a group admin first |
-| `Bad MAC` errors in terminal | Harmless — old encrypted messages from before session was established; ignore |
+| **Friend can't use bot in Private Mode** | WhatsApp frequently uses LIDs (`<id>@lid`) instead of phone numbers. Use `.whoami @friend` to get their LID number and add it to `ALLOWED_NUMBERS` in `.env`. |
+| **`ffmpeg` or `yt-dlp` error** | Ensure `ffmpeg` and `yt-dlp` are installed on the host system: `sudo apt install ffmpeg yt-dlp` or `sudo pacman -S ffmpeg yt-dlp`. |
+| **Groq 429 Rate Limit error** | You hit your Groq token quota. Switch models in `.env` (`llama-3.1-8b-instant`), upgrade your tier, or temporarily run `.disablecmd ai`. |
+| **Sticker conversion fails on Android** | Termux requires `glibc` libraries to compile image buffers properly. Follow the **[Termux PRoot Setup](TERMUX_SETUP.md)**. |
+| **Instagram download returns empty** | Place a valid `cookies.txt` in the root folder exported from a logged-in Instagram browser session. |
+| **QR code keeps refreshing** | Scan quickly from WhatsApp (**Linked Devices > Link a Device**). Ensure your network allows outbound WebSocket connections to WhatsApp servers. |
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.

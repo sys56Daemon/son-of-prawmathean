@@ -76,7 +76,8 @@ async function handleMessage(sock, msg) {
   if (isSentByBot) return;
 
   const prefixRe  = new RegExp(`^\\${config.prefix}`, 'i');
-  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq', 'thinksay', 'think', 'gay', 'rainbow', 'give'];
+  // const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq', 'thinksay', 'think', 'gay', 'rainbow', 'give'];
+  const BARE_CMDS = ['sticker', 'certify', 'certificate', 'qr', 'insta', 'pet', 'petpet', 'ai', 'groq', 'thinksay', 'think', 'gay', 'rainbow'];
   const isBareCmd = BARE_CMDS.some(cmd => new RegExp(`^${cmd}(\\s|$)`, 'i').test(text));
 
   // Natural conversational triggers for Groq AI: "hey rick" (or "hey ricke", "rick", "yo", "hey p" fallback)

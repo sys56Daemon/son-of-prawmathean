@@ -42,10 +42,13 @@ export function loadCustomContexts() {
     if (fs.existsSync(file)) {
       try {
         const raw = fs.readFileSync(file, 'utf-8');
-        // Filter out full-line comments starting with '#' if any
+        // Filter out full-line comments starting with '#' or '//'
         const cleaned = raw
           .split('\n')
-          .filter(line => !line.trim().startsWith('#'))
+          .filter(line => {
+            const trimmed = line.trim();
+            return !trimmed.startsWith('#') && !trimmed.startsWith('//');
+          })
           .join('\n');
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed)) {
@@ -57,6 +60,48 @@ export function loadCustomContexts() {
     }
   }
   return [];
+}
+
+import { resolvePhoneNumber, getNumber } from './permissions.js';
+
+/**
+ * Checks if a chat JID matches the target criteria.
+ * Supports:
+ *  - Exact string match (e.g. "120363433763376897@g.us" or "918075894293@s.whatsapp.net")
+ *  - Array of JIDs (e.g. ["120363433763376897@g.us", "120363999999999999@g.us"])
+ *  - Pattern / Phone / LID substring matching
+ */
+function isChatMatch(targetChat, currentJid) {
+  if (!targetChat) return true; // if no chat restriction specified, it applies anywhere!
+  if (Array.isArray(targetChat)) {
+    return targetChat.some(c => isChatMatch(c, currentJid));
+  }
+  if (targetChat === currentJid) return true;
+  if (currentJid && targetChat.length >= 10 && currentJid.includes(targetChat)) return true;
+
+  // Check resolved phone number if currentJid is an LID DM
+  const resolvedPhone = resolvePhoneNumber(currentJid);
+  if (resolvedPhone && targetChat.includes(resolvedPhone)) return true;
+
+  return false;
+}
+
+/**
+ * Checks if a sender matches the sender pattern.
+ * Supports phone number, LID, or partial digit matching.
+ */
+function isSenderMatch(pattern, senderJid) {
+  if (!pattern || !senderJid) return false;
+  if (senderJid.includes(pattern)) return true;
+
+  const senderDigits = getNumber(senderJid);
+  const patternDigits = pattern.replace(/\D/g, '');
+  if (patternDigits && senderDigits === patternDigits) return true;
+
+  const resolved = resolvePhoneNumber(senderJid);
+  if (resolved && patternDigits && resolved === patternDigits) return true;
+
+  return false;
 }
 
 /**
@@ -73,7 +118,20 @@ export function getChatContext(jid, senderJid, senderName = '') {
 
   for (const ctx of contexts) {
     if (ctx.enabled === false) continue;
-    if (ctx.chatJid && ctx.chatJid !== jid) continue;
+
+    // Check chat target: matches chatJid (single string or array) or chatJids
+    const chatTargets = ctx.chatJids || ctx.chatJid;
+    if (chatTargets && !isChatMatch(chatTargets, jid)) {
+      continue;
+    }
+
+    // Check sender restriction on the whole context block if specified
+    const contextSenders = ctx.targetSenders || ctx.userJids || ctx.users;
+    if (contextSenders) {
+      const allowedSenders = Array.isArray(contextSenders) ? contextSenders : [contextSenders];
+      const senderMatched = allowedSenders.some(p => isSenderMatch(p, senderJid));
+      if (!senderMatched) continue;
+    }
 
     if (ctx.systemContext) {
       matchedContext += `\n${ctx.systemContext}\n`;
@@ -81,7 +139,7 @@ export function getChatContext(jid, senderJid, senderName = '') {
 
     if (Array.isArray(ctx.senders) && senderJid) {
       for (const s of ctx.senders) {
-        if (s.pattern && senderJid.includes(s.pattern)) {
+        if (s.pattern && isSenderMatch(s.pattern, senderJid)) {
           customSpeakerTag = `[From: ${s.tag}${senderName ? ` - ${senderName}` : ''}]`;
           break;
         }

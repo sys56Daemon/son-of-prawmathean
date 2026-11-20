@@ -1,14 +1,36 @@
 [
   {
-    "id": "example-context",
+    "id": "friend-personal-everywhere",
     "enabled": false,
-    "chatJid": "120363000000000000@g.us",
+    "users": [
+      "1234567890", 
+      "98765432109876"
+    ],
     "senders": [
       {
         "pattern": "1234567890",
-        "tag": "Example Friend - Tech nerd"
+        "tag": "Alex (Phone) - Close Friend"
+      },
+      {
+        "pattern": "98765432109876",
+        "tag": "Alex (LID) - Close Friend"
       }
     ],
-    "systemContext": "Private Chat Context:\n- Example Friend (1234567890): Describe custom persona or instructions for this specific chat."
+    "systemContext": "Personal Context for Alex:\n- Close friend of the creator. Likes Linux and Rust.\n- When talking directly with Alex in DMs or groups, be supportive and share tech banter."
+  },
+  {
+    "id": "inner-circle-group-only",
+    "enabled": false,
+    "chatJids": [
+      "120363000000000000@g.us",
+      "1234567890@s.whatsapp.net"
+    ],
+    "senders": [
+      {
+        "pattern": "1234567890",
+        "tag": "Alex - Close Friend"
+      }
+    ],
+    "systemContext": "Private Group Context (Confidential to this group):\n- Discuss internal project milestones freely.\n- NEVER leak internal discussion details to any other chats or DMs."
   }
 ]
